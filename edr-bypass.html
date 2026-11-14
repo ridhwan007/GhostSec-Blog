@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Bypassing EDR at Full Volume — Ghost Sec Writes</title>
+<meta name="description" content="A sanitised methodology: building custom implants in Go to evade static analysis, runtime shellcode detection, behavioural heuristics and userland hooks across two enterprise EDR platforms running at maximum sensitivity."/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0a0a0a; --ink:#141414; --paper:#ffffff; --paper-2:#f6f4f1;
+  --red:#d0021b; --red-deep:#a80016; --red-wash:#f6ccd3;
+  --muted:#6b6b6b; --line:#e4e1dc; --line-strong:#111;
+  --crit:#d0021b; --high:#e0531a; --med:#b58900; --low:#2e7d46;
+  --done:#2e7d46; --incomplete:#b58900;
+  --wrap:760px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-size:18px;line-height:1.72;-webkit-font-smoothing:antialiased;}
+::selection{background:var(--red);color:#fff}
+
+.topbar{position:sticky;top:0;z-index:50;background:var(--paper);border-bottom:1px solid var(--line);}
+.topbar-inner{max-width:1080px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.mark{font-family:"Fraunces",serif;font-weight:600;font-size:20px;letter-spacing:-.3px;color:var(--black);text-decoration:none;display:flex;align-items:center;gap:10px;}
+.mark .sq{width:12px;height:12px;background:var(--red);display:inline-block;transform:rotate(45deg)}
+.topbar .back{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--muted);text-decoration:none}
+.topbar .back:hover{color:var(--red)}
+.topbar-right{display:flex;align-items:center;gap:16px}
+
+.hero{max-width:var(--wrap);margin:0 auto;padding:72px 28px 44px;}
+.kicker{display:inline-flex;align-items:center;gap:10px;font-family:"JetBrains Mono",monospace;
+  font-size:12px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--red);margin-bottom:26px;}
+.kicker::before{content:"";width:28px;height:2px;background:var(--red)}
+.hero h1{font-family:"Fraunces",serif;font-weight:600;line-height:1.08;
+  font-size:clamp(34px,6vw,56px);margin:0 0 24px;letter-spacing:-1px;color:var(--black);}
+.hero .standfirst{font-size:21px;line-height:1.55;color:#36352f;max-width:62ch;margin:0 0 34px;}
+.byline{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px;color:var(--muted);padding-top:22px;border-top:1px solid var(--line-strong);}
+.byline b{color:var(--ink);font-weight:600}
+.byline .tag{color:var(--red);font-weight:600;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase}
+
+.article{max-width:var(--wrap);margin:0 auto;padding:10px 28px 40px;}
+.article h2{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(26px,4vw,34px);line-height:1.15;margin:66px 0 20px;letter-spacing:-.5px;color:var(--black);scroll-margin-top:84px;}
+.article h2 .n{color:var(--red);font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:500;vertical-align:super;margin-right:10px}
+.article h3{font-family:"Fraunces",serif;font-weight:600;font-size:23px;margin:44px 0 10px;letter-spacing:-.3px;color:var(--black);scroll-margin-top:84px;}
+.article h4{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:var(--red);margin:26px 0 8px;}
+.article p{margin:0 0 18px}
+.article strong{color:var(--black);font-weight:600}
+.article em{font-style:italic}
+.article ul,.article ol{margin:0 0 20px;padding-left:4px;list-style:none}
+.article ul li,.article ol li{position:relative;padding-left:26px;margin:9px 0}
+.article ul li::before{content:"";position:absolute;left:4px;top:11px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+.article ol{counter-reset:ol}.article ol li{counter-increment:ol}
+.article ol li::before{content:counter(ol);position:absolute;left:0;top:0;font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:600;color:var(--red)}
+.lead{font-size:20px;color:#36352f;line-height:1.6}
+hr{border:0;height:1px;background:var(--line);margin:56px 0}
+.article > .lead:first-of-type::first-letter{font-family:"Fraunces",serif;font-weight:600;font-size:66px;line-height:.8;float:left;padding:6px 12px 0 0;color:var(--red);}
+code{font-family:"JetBrains Mono",monospace;font-size:.84em;background:var(--paper-2);color:var(--red-deep);padding:2px 6px;border-radius:3px;border:1px solid var(--line);}
+
+.note{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--red);padding:20px 24px;margin:28px 0;font-size:15.5px;color:#403f39;border-radius:0 3px 3px 0;}
+.note strong{color:var(--black)}
+.deep{background:#0d0d0d;color:#e8e4dd;border-radius:8px;padding:28px 28px 24px;margin:30px 0;border:1px solid #000}
+.deep h4{color:var(--red);margin-top:22px}
+.deep h4:first-child{margin-top:0}
+.deep p{margin:0 0 14px;font-size:16px;color:#d7d3cc}
+.deep strong{color:#fff}
+.deep .tagline{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#7d7a74}
+.pull{font-family:"Fraunces",serif;font-weight:500;font-size:25px;line-height:1.3;color:var(--black);border-top:2px solid var(--black);border-bottom:2px solid var(--black);padding:26px 0;margin:38px 0;letter-spacing:-.3px;}
+.pull .accent{color:var(--red)}
+
+.tbl{overflow-x:auto;margin:0 0 26px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{background:var(--black);color:#fff;font-family:"JetBrains Mono",monospace;font-weight:500;font-size:11.5px;letter-spacing:1px;text-transform:uppercase;border-bottom:none}
+tbody tr:hover{background:var(--paper-2)}
+.status-done{color:var(--done);font-weight:600}
+.status-inc{color:var(--incomplete);font-weight:600}
+
+/* rail timeline */
+.rail{counter-reset:rail;margin:26px 0 30px;border-left:2px solid var(--line)}
+.rail .node{position:relative;padding:3px 0 20px 46px;counter-increment:rail}
+.rail .node::before{content:counter(rail);position:absolute;left:-15px;top:0;width:28px;height:28px;
+  background:var(--black);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:600}
+.rail .node b{color:var(--red)}
+.rail .node .t{font-weight:600;color:var(--black)}
+
+/* phase cards */
+.phase{border:1px solid var(--line);border-top:3px solid var(--red);padding:22px 24px;margin:22px 0}
+.phase b{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--red);display:block;margin-bottom:4px}
+.phase .title{font-family:"Fraunces",serif;font-weight:600;font-size:19px;margin-bottom:8px;color:var(--black)}
+.phase p{font-size:15.5px;color:#43423c;margin:0}
+
+.foot{background:var(--black);color:#b8b5af;margin-top:70px}
+.foot-inner{max-width:1080px;margin:0 auto;padding:56px 28px 28px;display:grid;grid-template-columns:1.8fr 1fr 1fr;gap:40px}
+.foot .mark{color:#fff}.foot .mark .sq{background:var(--red)}
+.foot p{font-size:14px;line-height:1.65;max-width:38ch;margin:16px 0 0;color:#8f8c86}
+.foot h4{color:#fff;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 16px}
+.foot ul{list-style:none;margin:0;padding:0}.foot li{margin:9px 0}
+.foot a{color:#b8b5af;text-decoration:none;font-size:14px}.foot a:hover{color:var(--red)}
+.foot-bottom{border-top:1px solid #222;text-align:center;padding:20px 28px;font-size:12px;color:#6b6762;font-family:"JetBrains Mono",monospace;letter-spacing:.5px}
+@media(max-width:760px){.foot-inner{grid-template-columns:1fr;gap:28px}.hero{padding-top:52px}}
+
+.theme-toggle{background:none;border:1px solid var(--line);color:var(--muted);font-size:20px;cursor:pointer;padding:4px 10px;border-radius:4px;line-height:1;transition:color .2s,border-color .2s}
+.theme-toggle:hover{color:var(--red);border-color:var(--red)}
+
+@media(prefers-color-scheme:dark){
+:root:not([data-theme='light']){
+  --black:#f0f0f0;--ink:#e0ddd8;--paper:#0a0a0a;--paper-2:#141414;
+  --red:#e8334a;--red-deep:#ff6b7a;--red-wash:#2a0a0f;
+  --muted:#8a8a8a;--line:#2a2a2a;--line-strong:#ddd;
+  --code-bg:#161616;--code-fg:#f2efe9;
+}
+:root:not([data-theme='light']) .deep{background:#161616;border-color:#222}
+:root:not([data-theme='light']) .hero .standfirst,:root:not([data-theme='light']) .lead{color:#c0bdb6}
+:root:not([data-theme='light']) .note{background:#141414;border-color:#2a2a2a;border-left-color:var(--red);color:#c0bdb6}
+:root:not([data-theme='light']) .phase{border-color:#2a2a2a;border-top-color:var(--red)}
+:root:not([data-theme='light']) .phase p{color:#b0ada6}
+:root:not([data-theme='light']) thead th{background:#1a1a1a}
+:root:not([data-theme='light']) tbody tr:hover{background:#141414}
+:root:not([data-theme='light']) td,:root:not([data-theme='light']) th{border-bottom-color:#2a2a2a}
+:root:not([data-theme='light']) code{background:#1a1a1a;border-color:#2a2a2a;color:var(--red)}
+:root:not([data-theme='light']) .pull{border-color:#ddd}
+:root:not([data-theme='light']) .rail{border-left-color:#2a2a2a}
+:root:not([data-theme='light']) .foot{background:#050505}
+:root:not([data-theme='light']) .foot p{color:#6b6762}
+:root:not([data-theme='light']) .foot a{color:#8a8a8a}
+:root:not([data-theme='light']) .foot-bottom{border-top-color:#1a1a1a}
+:root:not([data-theme='light']) ::selection{background:var(--red);color:#fff}
+}
+[data-theme='dark']{
+  --black:#f0f0f0;--ink:#e0ddd8;--paper:#0a0a0a;--paper-2:#141414;
+  --red:#e8334a;--red-deep:#ff6b7a;--red-wash:#2a0a0f;
+  --muted:#8a8a8a;--line:#2a2a2a;--line-strong:#ddd;
+  --code-bg:#161616;--code-fg:#f2efe9;
+}
+[data-theme='dark'] .deep{background:#161616;border-color:#222}
+[data-theme='dark'] .hero .standfirst,[data-theme='dark'] .lead{color:#c0bdb6}
+[data-theme='dark'] .note{background:#141414;border-color:#2a2a2a;border-left-color:var(--red);color:#c0bdb6}
+[data-theme='dark'] .phase{border-color:#2a2a2a;border-top-color:var(--red)}
+[data-theme='dark'] .phase p{color:#b0ada6}
+[data-theme='dark'] thead th{background:#1a1a1a}
+[data-theme='dark'] tbody tr:hover{background:#141414}
+[data-theme='dark'] td,[data-theme='dark'] th{border-bottom-color:#2a2a2a}
+[data-theme='dark'] code{background:#1a1a1a;border-color:#2a2a2a;color:var(--red)}
+[data-theme='dark'] .pull{border-color:#ddd}
+[data-theme='dark'] .rail{border-left-color:#2a2a2a}
+[data-theme='dark'] .foot{background:#050505}
+[data-theme='dark'] .foot p{color:#6b6762}
+[data-theme='dark'] .foot a{color:#8a8a8a}
+[data-theme='dark'] .foot-bottom{border-top-color:#1a1a1a}
+[data-theme='dark'] ::selection{background:var(--red);color:#fff}
+
+.mark{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:17px;letter-spacing:-.3px;gap:10px}
+.mark .lg{width:22px;height:22px;flex:none;display:block}
+.mark .w{opacity:.5;font-weight:400}
+.mark .lg path{stroke-dasharray:1;stroke-dashoffset:1;animation:gsd 1.1s cubic-bezier(.6,0,.2,1) forwards}
+.mark .lg rect{opacity:0;animation:gsb 1.1s steps(1) 1.15s infinite}
+.foot .mark .lg path{animation:none;stroke-dashoffset:0}
+@keyframes gsd{to{stroke-dashoffset:0}}
+@keyframes gsb{0%{opacity:1}50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.mark .lg path{animation:none;stroke-dashoffset:0}.mark .lg rect{animation:none;opacity:1}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="mark" href="./"><svg class="lg" viewBox="20 20 60 60" aria-hidden="true"><path pathLength="1" d="M72,30 L30,30 L30,70 L70,70 L70,50 L50,50" fill="none" stroke="currentColor" stroke-width="9"/><rect x="37" y="45.5" width="9" height="9" fill="currentColor"/></svg>ghost_sec&nbsp;<span class="w">writes</span></a>
+    <div class="topbar-right">
+      <a class="back" href="./">&#8592; All writing</a>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <span class="kicker">Offensive Security &middot; Methodology</span>
+  <h1>Bypassing EDR at full volume</h1>
+  <p class="standfirst">Building a custom implant from scratch to evade two enterprise EDR platforms running in their most aggressive detection modes. Static analysis, runtime shellcode inspection, behavioural heuristics, userland hooks, network monitoring: each layer had to fall for the beacon to land.</p>
+  <div class="byline">
+    <span><b>@ghost_sec</b></span>
+    <span>EDR evasion methodology</span>
+    <span class="tag">Educational write-up</span>
+  </div>
+</section>
+
+<main class="article">
+
+<h2 id="context"><span class="n">00</span>Context</h2>
+<p class="lead">Most red team engagements treat endpoint detection as something to work around quietly: land a commodity payload, hope the rules are lax, and pivot before the SOC catches up. This engagement took the opposite approach. Two enterprise EDR platforms were deployed in their most aggressive detection configurations, and the objective was to build a bespoke implant that could survive every inspection layer, establish a command-and-control channel, and move laterally through the network without triggering a single alert.</p>
+<p>The target environment ran both platforms simultaneously, each tuned to maximum sensitivity. Every binary dropped on disk was scanned statically and at runtime. Every process was monitored for suspicious API call sequences. Every outbound connection was inspected for anomalous patterns. The brief was simple: build something that gets past all of it, or prove that you cannot.</p>
+<div class="note"><strong>Note.</strong> This write-up is for educational purposes only. The techniques described illustrate offensive security methodology and are intended to help defenders understand and improve their detection capabilities.</div>
+
+<hr/>
+
+<h2 id="adversary"><span class="n">01</span>The adversary model</h2>
+<p>Before writing a single line of code, the team mapped every detection layer that stood between a payload landing on disk and a stable C2 session. Each layer uses a different class of analysis, and each required a different evasion strategy. The table below is the threat model we operated against.</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>EDR check</th><th>Evasion technique</th><th>Implementation</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Static analysis</td><td>Language-level obfuscation</td><td>Compiled in Go with stripped debug symbols and information</td><td class="status-done">Done</td></tr>
+<tr><td>Runtime shellcode analysis</td><td>Shellcode encryption</td><td>Payload encrypted with AES-GCM, decrypted only at execution time</td><td class="status-done">Done</td></tr>
+<tr><td>Behavioural analysis</td><td>Timing delays</td><td>30-second sleep between each API call to break heuristic sequences</td><td class="status-done">Done</td></tr>
+<tr><td>Userland hooks</td><td>Indirect syscalls</td><td>Direct transition to kernel via syscall stubs, bypassing ntdll hooks</td><td class="status-done">Done</td></tr>
+<tr><td>Process integrity</td><td>Process injection</td><td>QueueUserAPC injection into a legitimate process</td><td class="status-done">Done</td></tr>
+<tr><td>Network monitoring (process)</td><td>Inject into trusted process</td><td>Beacon injected into a browser process, connecting over port 443</td><td class="status-done">Done</td></tr>
+<tr><td>Network monitoring (system)</td><td>Encrypted C2 over HTTPS</td><td>Registered domains with valid SSL certificates to mask beacon traffic</td><td class="status-done">Done</td></tr>
+<tr><td>Lateral movement detection</td><td>Living off the land</td><td>Proxy chains to tunnel traffic through compromised hosts</td><td class="status-done">Done</td></tr>
+<tr><td>Application integrity</td><td>Code signing</td><td>Sign the binary with a purchased certificate</td><td class="status-inc">Incomplete</td></tr>
+<tr><td>Post-exploitation detection</td><td>Bespoke tooling</td><td>Custom Beacon Object Files for credential dumping</td><td class="status-inc">Incomplete</td></tr>
+</tbody>
+</table>
+</div>
+<p>Eight of ten layers were defeated. The two incomplete items, code signing and bespoke post-exploitation tooling, were development-pipeline constraints, not detection wins: the techniques are well understood, the implementation simply had not shipped by assessment close.</p>
+
+<hr/>
+
+<h2 id="chain"><span class="n">02</span>The evasion chain</h2>
+<p>Each layer of defence expects a different kind of evidence. Static analysis looks at the file on disk. Runtime analysis watches what happens in memory. Behavioural heuristics correlate sequences of API calls. Userland hooks intercept specific system functions. Network monitors inspect traffic patterns. Defeating them all means building the implant so that no single layer ever sees enough signal to fire.</p>
+
+<div class="rail">
+  <div class="node"><span class="t">Choose the right language.</span> The implant was written in Go. Go binaries are large, structurally complex, and use a runtime that looks nothing like the C/C++ patterns that most detection signatures target. Stripping debug symbols and build information removed the metadata that static engines use for attribution and classification.</div>
+  <div class="node"><span class="t">Encrypt the shellcode.</span> The payload never existed in cleartext on disk or in memory until the moment it was needed. AES-GCM encryption meant that static scanners saw only ciphertext, and runtime scanners had no recognisable shellcode pattern to match during loading.</div>
+  <div class="node"><span class="t">Break the behavioural sequence.</span> EDR behavioural engines flag processes that call sensitive APIs in rapid succession: allocate memory, write shellcode, change protections, create a thread. Inserting a 30-second sleep between each call broke the temporal correlation window. To the heuristic engine, each call looked isolated and unremarkable.</div>
+  <div class="node"><span class="t">Bypass the hooks.</span> Both EDR platforms inject monitoring code into user-mode libraries, intercepting calls to functions like <code>NtAllocateVirtualMemory</code> and <code>NtWriteVirtualMemory</code> before they reach the kernel. Indirect syscalls skip the hooked library entirely, transitioning directly to the kernel via dynamically resolved syscall numbers. The hooks see nothing because they are never called.</div>
+  <div class="node"><span class="t">Inject into a trusted process.</span> Rather than running as a standalone executable, the implant injected its payload into a legitimate process using QueueUserAPC injection. The target was a browser process, which gave two advantages: the process was already trusted by the EDR and already had legitimate outbound network connections on port 443.</div>
+  <div class="node"><span class="t">Hide the traffic.</span> The C2 channel connected over port 443 to domains registered for the engagement, each with a valid SSL/TLS certificate. From the perspective of network monitoring, the traffic was indistinguishable from ordinary HTTPS browsing originating from a browser process.</div>
+  <div class="node"><span class="t">Move laterally without new tooling.</span> Once the initial beacon was established, lateral movement used proxy chains to tunnel traffic through compromised hosts. No new binaries were dropped on interior machines. The attacker's traffic rode existing, trusted network paths.</div>
+</div>
+
+<p class="pull">The implant passed static scanning, survived runtime inspection, evaded behavioural heuristics, bypassed userland hooks, hid inside a trusted process, and spoke over encrypted channels to attacker-controlled domains. <span class="accent">Zero alerts fired.</span></p>
+
+<hr/>
+
+<h2 id="static"><span class="n">03</span>Static analysis: why Go</h2>
+<p>Most EDR static engines are tuned to recognise patterns in C and C++ binaries: import tables, string constants, known function prologues, and PE section layouts that match common offensive tooling. Go sidesteps nearly all of these. The Go runtime statically links its own standard library, producing a large binary with thousands of functions that have no relationship to known malware signatures. The calling convention is different. The string representation is different. The binary structure is different.</p>
+<p>Stripping debug symbols with standard Go build flags removed function names, source file paths, and build metadata. What landed on disk was a large, opaque binary that looked like any number of legitimate Go applications.</p>
+
+<div class="deep">
+  <p class="tagline">Design decision</p>
+  <h4>Why not Rust, Nim, or C?</h4>
+  <p>Each was considered. C and C++ produce small, efficient binaries but are the best-understood targets for signature engines. Nim was promising but had a smaller ecosystem for the specific syscall and injection techniques needed. Rust's binary structure is less well-known to EDR engines, but Go's runtime complexity provided the strongest passive obfuscation with the least development friction. The choice was pragmatic, not ideological.</p>
+</div>
+
+<hr/>
+
+<h2 id="runtime"><span class="n">04</span>Runtime analysis: keeping shellcode invisible</h2>
+<p>Static evasion gets the binary past the initial scan. Runtime evasion keeps the payload hidden once the process starts executing. The critical window is between the binary launching and the shellcode being injected into the target process. During that window, the EDR's runtime scanner is watching memory allocations, page protections, and byte patterns.</p>
+<p>The shellcode was encrypted with AES-GCM and embedded in the binary as an opaque data blob. At execution time, the implant decrypted the payload into a fresh memory allocation, but not before inserting the 30-second timing delay that broke behavioural correlation. The decrypted shellcode existed in memory only briefly, and only in the context of the injection sequence that immediately consumed it.</p>
+<p>AES-GCM was chosen over simpler schemes like XOR because GCM provides authenticated encryption. A corrupted or tampered payload fails decryption cleanly rather than producing garbled but partially executable shellcode, which would trigger heuristic detections on malformed code execution.</p>
+
+<hr/>
+
+<h2 id="behaviour"><span class="n">05</span>Behavioural analysis: the 30-second rule</h2>
+<p>Behavioural engines do not look at individual API calls. They look at <em>sequences</em>: allocate RW memory, write a buffer, change to RX, create a remote thread. That sequence, executed in rapid succession, is one of the highest-confidence signals for shellcode injection. It fires in nearly every detection model.</p>
+<p>The evasion was simple. A 30-second sleep was inserted between each API call in the injection chain. From the EDR's perspective, the process allocated some memory, then did nothing suspicious for half a minute. Then it wrote some data. Then nothing for another half a minute. Then it changed page protections. Each action, viewed in isolation within the correlation window, was unremarkable.</p>
+<p>The cost was speed. The injection sequence that normally completes in milliseconds took several minutes. For a red team operation where stealth matters more than speed, this was an acceptable trade.</p>
+
+<hr/>
+
+<h2 id="hooks"><span class="n">06</span>Userland hooks: going underneath</h2>
+<p>Both EDR platforms monitor sensitive Windows API functions by patching the first few bytes of each function in <code>ntdll.dll</code> with a jump to the EDR's monitoring code. When a process calls <code>NtAllocateVirtualMemory</code>, the call hits the hook first, which logs it, analyses it, and then either allows or blocks it.</p>
+<p>Indirect syscalls bypass this entirely. Rather than calling the hooked function in ntdll, the implant resolves the correct syscall number for the current Windows version and issues the syscall instruction directly. The CPU transitions to kernel mode without ever executing the hooked code in user space. The EDR's hooks remain in place but are never triggered.</p>
+
+<div class="deep">
+  <p class="tagline">Technical note</p>
+  <h4>Direct vs. indirect syscalls</h4>
+  <p>A <strong>direct syscall</strong> embeds the <code>syscall</code> instruction inside the implant's own code. This works but leaves a detectable artefact: the syscall instruction originates from an unusual memory region rather than from ntdll. Some EDR platforms now flag this.</p>
+  <p>An <strong>indirect syscall</strong> avoids that by jumping to the legitimate <code>syscall</code> instruction inside ntdll, but <em>after</em> the hook's jump patch, so the hook is still bypassed while the return address points to ntdll's own code. This is the approach used here, implemented in Go with the syscall stubs resolved at runtime.</p>
+</div>
+
+<hr/>
+
+<h2 id="injection"><span class="n">07</span>Process injection: hiding in plain sight</h2>
+<p>The implant used QueueUserAPC injection. This technique queues a user-mode asynchronous procedure call to a thread in a target process. When that thread enters an alertable wait state, the queued code executes in the target's context. The target process was a browser, specifically one that was already running, already trusted by the EDR, and already making outbound HTTPS connections.</p>
+<p>Injecting into a browser process solved two problems at once. First, the EDR trusted the browser's process integrity, so the injected code ran under the same trust umbrella. Second, the beacon's outbound C2 connections on port 443 blended seamlessly with the browser's existing traffic. No new process appeared, no new network socket opened from an unusual binary.</p>
+
+<hr/>
+
+<h2 id="c2"><span class="n">08</span>Command and control: blending into HTTPS</h2>
+<p>The C2 infrastructure was designed to be invisible to network monitoring. Domains were registered for the engagement and pointed to the team's C2 servers. Valid SSL/TLS certificates were obtained for each domain. The beacon communicated over port 443 using standard HTTPS, with traffic that was structurally indistinguishable from legitimate web browsing.</p>
+<p>Because the beacon ran inside a browser process that was already making HTTPS connections, the EDR's network monitoring saw a known browser process talking to an external domain over an encrypted channel. This is exactly what browsers do thousands of times per day. There was no anomaly to flag.</p>
+
+<div class="phase">
+  <b>Infrastructure</b>
+  <p class="title">C2 domain setup</p>
+  <p>Registered domains with plausible names. Deployed SSL/TLS certificates. Configured the C2 framework to serve valid HTTPS responses. All beacon traffic encrypted end to end. From the wire, indistinguishable from a user browsing the web.</p>
+</div>
+
+<hr/>
+
+<h2 id="lateral"><span class="n">09</span>Lateral movement: living off the land</h2>
+<p>Once the initial beacon was established, the engagement moved laterally without dropping new binaries. Traffic was routed through proxy chains, using compromised hosts as relay points. Each hop looked like internal traffic between trusted systems. No new executables were written to disk on interior machines. No new processes were spawned that the EDR had not already blessed.</p>
+<p>This is the "living off the land" principle applied to post-exploitation networking: use what is already there, avoid introducing anything new that a detection engine could key on.</p>
+
+<hr/>
+
+<h2 id="incomplete"><span class="n">10</span>What was not completed</h2>
+<p>Two items in the evasion matrix remained incomplete at assessment close. Neither represents a detection win for the EDR platforms. Both are well-understood techniques that the engagement timeline did not accommodate.</p>
+
+<h3>Code signing</h3>
+<p>Unsigned binaries are treated with higher suspicion by both EDR platforms and by Windows itself. Signing the implant with a purchased code-signing certificate would have reduced this friction. The procurement process for the certificate was underway but had not completed by the end of the engagement window. The implant ran successfully without it, but a signed binary would have reduced the already-low risk of manual analyst review.</p>
+
+<h3>Bespoke Beacon Object Files</h3>
+<p>Post-exploitation credential access, specifically dumping credentials from memory and the Security Account Manager, relied on existing tooling that was more likely to trigger detection than the custom implant itself. Building bespoke Beacon Object Files for these tasks would have kept the entire kill chain at the same evasion standard. This was planned but not shipped. The credential-dumping phase was conducted with increased operational risk as a result.</p>
+
+<hr/>
+
+<h2 id="lessons"><span class="n">11</span>Why it worked</h2>
+<div class="tbl">
+<table>
+<thead><tr><th>Defensive assumption</th><th>What actually happened</th><th>Lesson</th></tr></thead>
+<tbody>
+<tr><td>Static signatures catch known tools</td><td>Go binary matched no known signatures. Stripped metadata eliminated attribution.</td><td>Signature-based detection fails against bespoke tooling. Organisations must assume custom implants will bypass static analysis.</td></tr>
+<tr><td>Runtime scanning detects shellcode patterns</td><td>AES-GCM encryption meant the payload was ciphertext until the moment of use.</td><td>Encrypted payloads are invisible to pattern matching. Detection must look at behaviour, not byte patterns.</td></tr>
+<tr><td>Behavioural heuristics catch injection sequences</td><td>30-second delays broke temporal correlation. Each API call appeared isolated.</td><td>Correlation windows are finite. A patient attacker can space actions outside the detection window.</td></tr>
+<tr><td>Userland hooks monitor all API calls</td><td>Indirect syscalls bypassed hooks entirely. The monitoring code was never executed.</td><td>User-space hooks are a best-effort control. Kernel-level telemetry is more resilient.</td></tr>
+<tr><td>Process trust lists prevent injection</td><td>Injecting into a browser gave inherited trust and legitimate network patterns.</td><td>Trust should be per-thread, not per-process. A trusted process can host untrusted code.</td></tr>
+<tr><td>Network monitoring detects C2 channels</td><td>Valid HTTPS from a browser process to registered domains was indistinguishable from browsing.</td><td>TLS inspection and domain reputation scoring must complement network monitoring.</td></tr>
+</tbody>
+</table>
+</div>
+
+<hr/>
+
+<h2 id="defence"><span class="n">12</span>Defensive priorities</h2>
+<p>This engagement demonstrated that EDR, even at maximum sensitivity, is a necessary but insufficient control. The following priorities would materially increase the cost of this attack.</p>
+<ul>
+<li><strong>Kernel-level telemetry over userland hooks.</strong> Hooks in ntdll are bypassable by design. ETW-based kernel telemetry and hypervisor-protected code integrity raise the bar significantly.</li>
+<li><strong>Behavioural baselines, not just sequences.</strong> Instead of looking for known bad sequences, establish what a given process normally does and alert on deviation. A browser process that suddenly allocates RWX memory is anomalous regardless of timing.</li>
+<li><strong>Code-signing enforcement.</strong> Requiring signed binaries for execution would have blocked this implant entirely. Application allowlisting is the single highest-impact control.</li>
+<li><strong>Memory integrity scanning.</strong> Periodic scanning of running process memory for injected code, even in trusted processes, would detect the beacon after injection.</li>
+<li><strong>Network segmentation and domain reputation.</strong> Newly registered domains connecting over HTTPS should be treated with suspicion. DNS-layer filtering and domain age scoring would flag the C2 infrastructure.</li>
+<li><strong>Assume breach.</strong> The credential-dumping phase was the noisiest part of the chain. Monitoring for credential access patterns, even when the initial foothold is silent, catches the attacker at the point of highest value.</li>
+</ul>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <a class="mark" href="./"><svg class="lg" viewBox="20 20 60 60" aria-hidden="true"><path pathLength="1" d="M72,30 L30,30 L30,70 L70,70 L70,50 L50,50" fill="none" stroke="currentColor" stroke-width="9"/><rect x="37" y="45.5" width="9" height="9" fill="currentColor"/></svg>ghost_sec&nbsp;<span class="w">writes</span></a>
+      <p>Offensive security and AI red team research by @ghost_sec. All write-ups are for educational purposes only.</p>
+    </div>
+    <div>
+      <h4>Writing</h4>
+      <ul>
+        <li><a href="ai-red-team.html">AI Red Team Methodology</a></li>
+        <li><a href="ai-assistants.html">AI Assistants &amp; Workflow Apps</a></li>
+        <li><a href="firm-compromise.html">End-to-End Firm Compromise</a></li>
+        <li><a href="crypto-vault.html">Breaking a Crypto Vault</a></li>
+        <li><a href="otp-takeover.html">OTP Account Takeover</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Connect</h4>
+      <ul>
+        <li><a href="https://www.linkedin.com/in/ridros/">LinkedIn</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">&copy; 2025 Ghost Sec Writes. All rights reserved.</div>
+</footer>
+
+<script>
+function toggleTheme(){
+  var root=document.documentElement;
+  var current=root.getAttribute('data-theme');
+  var next=current==='dark'?'light':current==='light'?'dark':
+    window.matchMedia('(prefers-color-scheme:dark)').matches?'light':'dark';
+  root.setAttribute('data-theme',next);
+  try{localStorage.setItem('ghost-theme',next)}catch(e){}
+}
+(function(){
+  try{var t=localStorage.getItem('ghost-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+})();
+</script>
+</body>
+</html>

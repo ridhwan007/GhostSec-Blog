@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Red-Teaming Internal AI Assistants &amp; Workflow Apps — a Methodology</title>
+<meta name="description" content="A methodology for red-teaming internal AI assistants and LLM-backed workflow applications: the trust boundaries, the full set of attack vectors, and the impacts the method surfaces."/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0a0a0a; --ink:#141414; --paper:#ffffff; --paper-2:#f6f4f1;
+  --red:#d0021b; --red-deep:#a80016; --red-wash:#f6ccd3;
+  --muted:#6b6b6b; --line:#e4e1dc; --line-strong:#111;
+  --crit:#d0021b; --high:#e0531a; --med:#b58900; --low:#2e7d46;
+  --wrap:760px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-size:18px;line-height:1.72;-webkit-font-smoothing:antialiased;}
+::selection{background:var(--red);color:#fff}
+
+.topbar{position:sticky;top:0;z-index:50;background:var(--paper);border-bottom:1px solid var(--line);}
+.topbar-inner{max-width:1080px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.mark{font-family:"Fraunces",serif;font-weight:600;font-size:20px;letter-spacing:-.3px;color:var(--black);text-decoration:none;display:flex;align-items:center;gap:10px;}
+.mark .sq{width:12px;height:12px;background:var(--red);display:inline-block;transform:rotate(45deg)}
+.topbar .back{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--muted);text-decoration:none}
+.topbar .back:hover{color:var(--red)}
+.topbar-right{display:flex;align-items:center;gap:16px}
+
+.hero{max-width:var(--wrap);margin:0 auto;padding:72px 28px 44px;}
+.kicker{display:inline-flex;align-items:center;gap:10px;font-family:"JetBrains Mono",monospace;
+  font-size:12px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--red);margin-bottom:26px;}
+.kicker::before{content:"";width:28px;height:2px;background:var(--red)}
+.hero h1{font-family:"Fraunces",serif;font-weight:600;line-height:1.08;
+  font-size:clamp(34px,6vw,56px);margin:0 0 24px;letter-spacing:-1px;color:var(--black);}
+.hero .standfirst{font-size:21px;line-height:1.55;color:#36352f;max-width:62ch;margin:0 0 34px;}
+.byline{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px;color:var(--muted);padding-top:22px;border-top:1px solid var(--line-strong);}
+.byline b{color:var(--ink);font-weight:600}
+.byline .tag{color:var(--red);font-weight:600;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase}
+
+.article{max-width:var(--wrap);margin:0 auto;padding:10px 28px 40px;}
+.article h2{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(26px,4vw,34px);line-height:1.15;margin:66px 0 20px;letter-spacing:-.5px;color:var(--black);scroll-margin-top:84px;}
+.article h2 .n{color:var(--red);font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:500;vertical-align:super;margin-right:10px}
+.article h3{font-family:"Fraunces",serif;font-weight:600;font-size:23px;margin:44px 0 10px;letter-spacing:-.3px;color:var(--black);scroll-margin-top:84px;}
+.article h3 .ph{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--red);font-weight:500;margin-right:10px;letter-spacing:1px}
+.article h4{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:var(--red);margin:26px 0 8px;}
+.article p{margin:0 0 18px}
+.article strong{color:var(--black);font-weight:600}
+.article em{font-style:italic}
+.article ul,.article ol{margin:0 0 20px;padding-left:4px;list-style:none}
+.article ul li,.article ol li{position:relative;padding-left:26px;margin:9px 0}
+.article ul li::before{content:"";position:absolute;left:4px;top:11px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+.article ol{counter-reset:ol}.article ol li{counter-increment:ol}
+.article ol li::before{content:counter(ol);position:absolute;left:0;top:0;font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:600;color:var(--red)}
+.lead{font-size:20px;color:#36352f;line-height:1.6}
+hr{border:0;height:1px;background:var(--line);margin:56px 0}
+.article > .lead:first-of-type::first-letter{font-family:"Fraunces",serif;font-weight:600;font-size:66px;line-height:.8;float:left;padding:6px 12px 0 0;color:var(--red);}
+code{font-family:"JetBrains Mono",monospace;font-size:.84em;background:var(--paper-2);color:var(--red-deep);padding:2px 6px;border-radius:3px;border:1px solid var(--line);}
+
+.note{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--red);padding:20px 24px;margin:28px 0;font-size:15.5px;color:#403f39;border-radius:0 3px 3px 0;}
+.note strong{color:var(--black)}
+.pull{font-family:"Fraunces",serif;font-weight:500;font-size:25px;line-height:1.3;color:var(--black);border-top:2px solid var(--black);border-bottom:2px solid var(--black);padding:26px 0;margin:38px 0;letter-spacing:-.3px;}
+.pull .accent{color:var(--red)}
+
+.tbl{overflow-x:auto;margin:0 0 26px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{background:var(--black);color:#fff;font-family:"JetBrains Mono",monospace;font-weight:500;font-size:11.5px;letter-spacing:1px;text-transform:uppercase;border-bottom:none}
+tbody tr:hover{background:var(--paper-2)}
+.sv{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+.sv.c{color:var(--crit)}.sv.h{color:var(--high)}.sv.m{color:var(--med)}.sv.l{color:var(--low)}
+
+.vec{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.vec b{color:var(--red);font-weight:500}
+.phase h3{border-left:3px solid var(--red);padding-left:16px;margin-left:-19px}
+
+.foot{background:var(--black);color:#b8b5af;margin-top:70px}
+.foot-inner{max-width:1080px;margin:0 auto;padding:56px 28px 28px;display:grid;grid-template-columns:1.8fr 1fr 1fr;gap:40px}
+.foot .mark{color:#fff}.foot .mark .sq{background:var(--red)}
+.foot p{font-size:14px;line-height:1.65;max-width:38ch;margin:16px 0 0;color:#8f8c86}
+.foot h4{color:#fff;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 16px}
+.foot ul{list-style:none;margin:0;padding:0}.foot li{margin:9px 0}
+.foot a{color:#b8b5af;text-decoration:none;font-size:14px}.foot a:hover{color:var(--red)}
+.foot-bottom{border-top:1px solid #222;text-align:center;padding:20px 28px;font-size:12px;color:#6b6762;font-family:"JetBrains Mono",monospace;letter-spacing:.5px}
+@media(max-width:760px){.foot-inner{grid-template-columns:1fr;gap:28px}.hero{padding-top:52px}}
+
+.theme-toggle{background:none;border:1px solid var(--line);color:var(--muted);font-size:20px;cursor:pointer;padding:4px 10px;border-radius:4px;line-height:1;transition:color .2s,border-color .2s}
+.theme-toggle:hover{color:var(--red);border-color:var(--red)}
+
+@media(prefers-color-scheme:dark){
+:root:not([data-theme='light']){
+  --black:#f0f0f0;--ink:#e0ddd8;--paper:#0a0a0a;--paper-2:#141414;
+  --red:#e8334a;--red-deep:#ff6b7a;--red-wash:#2a0a0f;
+  --muted:#8a8a8a;--line:#2a2a2a;--line-strong:#ddd;
+}
+:root:not([data-theme='light']) .hero .standfirst,:root:not([data-theme='light']) .lead{color:#c0bdb6}
+:root:not([data-theme='light']) .note{background:#141414;border-color:#2a2a2a;border-left-color:var(--red);color:#c0bdb6}
+:root:not([data-theme='light']) .pull{border-color:#ddd}
+:root:not([data-theme='light']) thead th{background:#1a1a1a}
+:root:not([data-theme='light']) tbody tr:hover{background:#141414}
+:root:not([data-theme='light']) td,:root:not([data-theme='light']) th{border-bottom-color:#2a2a2a}
+:root:not([data-theme='light']) code{background:#1a1a1a;border-color:#2a2a2a;color:var(--red)}
+:root:not([data-theme='light']) .foot{background:#050505}
+:root:not([data-theme='light']) .foot p{color:#6b6762}
+:root:not([data-theme='light']) .foot a{color:#8a8a8a}
+:root:not([data-theme='light']) .foot-bottom{border-top-color:#1a1a1a}
+:root:not([data-theme='light']) ::selection{background:var(--red);color:#fff}
+}
+[data-theme='dark']{
+  --black:#f0f0f0;--ink:#e0ddd8;--paper:#0a0a0a;--paper-2:#141414;
+  --red:#e8334a;--red-deep:#ff6b7a;--red-wash:#2a0a0f;
+  --muted:#8a8a8a;--line:#2a2a2a;--line-strong:#ddd;
+}
+[data-theme='dark'] .hero .standfirst,[data-theme='dark'] .lead{color:#c0bdb6}
+[data-theme='dark'] .note{background:#141414;border-color:#2a2a2a;border-left-color:var(--red);color:#c0bdb6}
+[data-theme='dark'] .pull{border-color:#ddd}
+[data-theme='dark'] thead th{background:#1a1a1a}
+[data-theme='dark'] tbody tr:hover{background:#141414}
+[data-theme='dark'] td,[data-theme='dark'] th{border-bottom-color:#2a2a2a}
+[data-theme='dark'] code{background:#1a1a1a;border-color:#2a2a2a;color:var(--red)}
+[data-theme='dark'] .foot{background:#050505}
+[data-theme='dark'] .foot p{color:#6b6762}
+[data-theme='dark'] .foot a{color:#8a8a8a}
+[data-theme='dark'] .foot-bottom{border-top-color:#1a1a1a}
+[data-theme='dark'] ::selection{background:var(--red);color:#fff}
+
+.mark{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:17px;letter-spacing:-.3px;gap:10px}
+.mark .lg{width:22px;height:22px;flex:none;display:block}
+.mark .w{opacity:.5;font-weight:400}
+.mark .lg path{stroke-dasharray:1;stroke-dashoffset:1;animation:gsd 1.1s cubic-bezier(.6,0,.2,1) forwards}
+.mark .lg rect{opacity:0;animation:gsb 1.1s steps(1) 1.15s infinite}
+.foot .mark .lg path{animation:none;stroke-dashoffset:0}
+@keyframes gsd{to{stroke-dashoffset:0}}
+@keyframes gsb{0%{opacity:1}50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.mark .lg path{animation:none;stroke-dashoffset:0}.mark .lg rect{animation:none;opacity:1}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="mark" href="./"><svg class="lg" viewBox="20 20 60 60" aria-hidden="true"><path pathLength="1" d="M72,30 L30,30 L30,70 L70,70 L70,50 L50,50" fill="none" stroke="currentColor" stroke-width="9"/><rect x="37" y="45.5" width="9" height="9" fill="currentColor"/></svg>ghost_sec&nbsp;<span class="w">writes</span></a>
+    <div class="topbar-right">
+      <a class="back" href="./">← All writing</a>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <span class="kicker">AI Red Team · Methodology</span>
+  <h1>Red-teaming internal AI assistants &amp; workflow apps</h1>
+  <p class="standfirst">The internal copilot that answers from your knowledge base, files tickets and runs automations is a web app, a RAG pipeline, a set of privileged tools and an identity boundary, all at once. This is the methodology for testing it: the trust boundaries, the attack vectors, and the impacts the method surfaces.</p>
+  <div class="byline">
+    <span><b>@ghost_sec</b></span>
+    <span>Methodology</span>
+    <span class="tag">Educational write-up</span>
+  </div>
+</section>
+
+<main class="article">
+
+<h2 id="summary"><span class="n">00</span>Why this class is different</h2>
+<p class="lead">An internal AI assistant feels like a chat box, but underneath it is several systems wearing one interface. It reads from a knowledge base over retrieval, it holds connectors into ticketing, mail, documents and line-of-business systems, it often runs automated workflows triggered by events rather than people, and it does all of this under an identity that frequently carries more access than the person using it. Every one of those properties is an attack surface, and most of them are invisible from the chat window.</p>
+<p>The defining risk is simple to state. These systems <strong>mix instructions and data in the same channel</strong>. A ticket, a document, an email or an uploaded file is data the assistant is meant to process, but the model reads it as language, and language can carry instructions. When the assistant also holds tools and runs without a human in the loop, a line of text inside a support ticket can become an action taken under a privileged identity.</p>
+<p>This article sets out the <strong>methodology</strong> for red-teaming that class of system. It is distilled from assessments of internal AI assistants and LLM-backed workflow applications, fully sanitised, with no client or product named. It is written as a repeatable method, not a single engagement.</p>
+<div class="note"><strong>Note.</strong> This write-up is for educational purposes only. The techniques described illustrate offensive security methodology and are intended to help defenders understand and improve their detection capabilities.</div>
+
+<hr/>
+
+<h2 id="anatomy"><span class="n">01</span>Anatomy of the target</h2>
+<p>Before attacking, map what you are actually looking at. Most internal assistants and workflow apps are built from the same parts, and the trust boundaries sit between them.</p>
+<ul>
+<li><strong>The interface and orchestration app.</strong> A normal web application and API that manages conversations, sessions, uploads and the calls to the model. Ordinary application security applies here in full.</li>
+<li><strong>The model and its system prompt.</strong> The instruction hierarchy, the guardrails, and whatever context the app injects (role, user, available tools).</li>
+<li><strong>The retrieval layer (RAG).</strong> An index over internal knowledge: documents, wikis, tickets, past conversations. The key question is whether retrieval respects the <em>asking user's</em> permissions, or the service's.</li>
+<li><strong>Tools and connectors.</strong> The actions the assistant can take: query a database, create or update a ticket, send mail, call an internal API, fetch a URL. This is where language turns into consequence.</li>
+<li><strong>Workflow automation.</strong> Event-triggered flows that chain model calls and tool actions, sometimes with no human approval between trigger and effect.</li>
+<li><strong>Identity and multi-tenancy.</strong> Who the assistant acts as, how user and tenant boundaries are enforced, and whether sessions are isolated.</li>
+</ul>
+<p class="pull">The assistant mixes <span class="accent">instructions and data</span> in one channel, then backs them with <span class="accent">privileged tools</span>. That is the whole problem, in one sentence.</p>
+
+<hr/>
+
+<h2 id="methodology"><span class="n">02</span>Methodology followed</h2>
+<p>Run as adversary emulation with concrete goals, not a feature checklist. The phases below layer the AI-specific vectors on top of a conventional application, API and identity assessment, because the chat box is still sitting on an ordinary web stack.</p>
+
+<div class="phase">
+
+<h3><span class="ph">P0</span>Scoping &amp; attacker goals</h3>
+<p class="vec">Vectors framed · <b>data exfiltration, unauthorised action, privilege escalation, workflow subversion, abuse</b></p>
+<p>Define what an attacker actually wants from this assistant: read data belonging to another user or tenant, make the assistant perform an action the user is not entitled to, escalate through the assistant's identity, subvert an automated workflow, extract the system prompt or connector secrets, or run up cost. Agree data-handling rules for any real content touched. Every later test traces to one of these goals.</p>
+
+<h3><span class="ph">P1</span>Surface &amp; trust-boundary mapping</h3>
+<p class="vec">Vectors mapped · <b>untrusted-input inventory, tool/permission inventory, human-in-the-loop analysis</b></p>
+<ul>
+<li>Inventory every place <strong>untrusted content</strong> can reach the model: direct prompts, uploaded files, retrieved documents, tickets, emails, calendar items, web pages the assistant fetches, and prior-conversation memory.</li>
+<li>Inventory every <strong>tool and connector</strong> and its real capability and blast radius, read versus write, internal versus external, reversible versus not.</li>
+<li>Mark which actions have a <strong>human in the loop</strong> and which fire autonomously. Autonomous plus untrusted input is the highest-value path.</li>
+</ul>
+
+<h3><span class="ph">P2</span>Application &amp; API security</h3>
+<p class="vec">Vectors · <b>broken access control, IDOR on conversations/files, upload abuse, SSRF, rate-limit gaps</b></p>
+<ul>
+<li>Test the orchestration API the way you would any app: authentication, authorisation, object-level access control on conversations, files and histories.</li>
+<li>Probe file upload, attachment handling and any URL-fetch feature for SSRF and parser abuse.</li>
+<li>Check rate limiting and quotas on the model-facing endpoints, since these gate both abuse and cost.</li>
+</ul>
+
+<h3><span class="ph">P3</span>Identity, authorisation &amp; multi-tenancy</h3>
+<p class="vec">Vectors · <b>RAG authorisation bypass, cross-user/tenant leakage, confused deputy, session isolation</b></p>
+<ul>
+<li>Test whether <strong>retrieval enforces the asking user's permissions</strong>. Ask for content the user should not see and watch whether the index returns it anyway because it is scoped to the service, not the person.</li>
+<li>Probe <strong>cross-user and cross-tenant</strong> boundaries: can one user's data, conversations or uploads surface in another's session.</li>
+<li>Look for the <strong>confused-deputy</strong> pattern: the assistant holds broad access and acts on a low-privilege user's request, becoming a privilege-escalation path by design.</li>
+</ul>
+
+<h3><span class="ph">P4</span>Prompt-layer attacks</h3>
+<p class="vec">Vectors · <b>direct injection, jailbreak, system-prompt &amp; config extraction, guardrail bypass</b></p>
+<ul>
+<li>Attack the instruction hierarchy directly: override the system prompt, defeat guardrails, and extract the system prompt, tool definitions and any embedded configuration or secrets.</li>
+<li>Test refusal and safety behaviour under framing, role-play and encoding, and record how reliably each bypass reproduces rather than treating a single success as proof.</li>
+</ul>
+
+<h3><span class="ph">P5</span>Indirect prompt injection through content</h3>
+<p class="vec">Vectors · <b>poisoned documents, tickets, emails and files; RAG poisoning; delayed triggers</b></p>
+<ul>
+<li>Plant instructions inside content the assistant will later ingest: a <strong>support ticket</strong>, a knowledge-base <strong>document</strong>, an <strong>email</strong>, a shared <strong>file</strong>, so that processing the item executes the attacker's text.</li>
+<li>Test <strong>RAG poisoning</strong>: introduce a document into the indexed store that steers answers, overrides policy, or carries exfiltration instructions whenever it is retrieved.</li>
+<li>Test <strong>delayed and second-order</strong> triggers, where the injection lies dormant until a specific user or workflow pulls the content.</li>
+</ul>
+
+<h3><span class="ph">P6</span>Tool &amp; connector abuse</h3>
+<p class="vec">Vectors · <b>excessive agency, missing per-action authorisation, argument injection, tool-chaining, SSRF via tools</b></p>
+<ul>
+<li>Test <strong>excessive agency</strong>: can a normal user drive a high-impact action (external mail, record deletion, config change) with no secondary authorisation.</li>
+<li>Test whether <strong>prompt injection can reach a tool call</strong>, turning a poisoned document into an action rather than just a wrong answer.</li>
+<li>Probe <strong>tool-argument injection</strong> and <strong>tool chaining</strong>, where one action's output feeds another to escalate, and URL-fetch tools for SSRF into internal services.</li>
+</ul>
+
+<h3><span class="ph">P7</span>Workflow &amp; automation subversion</h3>
+<p class="vec">Vectors · <b>trigger injection, autonomous-action abuse, cross-workflow leakage, loop &amp; cost abuse</b></p>
+<ul>
+<li>Target flows that run <strong>without a human in the loop</strong>: an inbound email or ticket that starts a workflow and carries injection straight into an action.</li>
+<li>Test <strong>cross-workflow data leakage</strong>, where context or output from one automation bleeds into another.</li>
+<li>Test <strong>loop and cost abuse</strong>: inputs that cause runaway chains of model and tool calls.</li>
+</ul>
+
+<h3><span class="ph">P8</span>Output handling &amp; downstream impact</h3>
+<p class="vec">Vectors · <b>rendered-output injection, markdown/link exfiltration, unsanitised output consumed downstream</b></p>
+<ul>
+<li>Test how the assistant's output is <strong>rendered</strong>: markdown, HTML and links in a web UI can become stored cross-site scripting or a data-smuggling channel through auto-loaded image and link URLs.</li>
+<li>Test where output is <strong>consumed by another system</strong> without sanitisation, so the model's text becomes the next component's input.</li>
+</ul>
+
+<h3><span class="ph">P9</span>Sensitive-data exposure</h3>
+<p class="vec">Vectors · <b>over-broad retrieval, secret leakage, transcript/log exposure, memory bleed</b></p>
+<ul>
+<li>Test for <strong>over-broad retrieval</strong> that returns secrets, keys or personal data embedded in indexed content.</li>
+<li>Check whether <strong>transcripts, logs and memory</strong> retain sensitive content, and whether that store is itself exposed or under-protected.</li>
+</ul>
+
+<h3><span class="ph">P10</span>Supply chain &amp; integrations</h3>
+<p class="vec">Vectors · <b>connector/plugin trust, third-party tool poisoning, model &amp; dependency provenance</b></p>
+<ul>
+<li>Assess the trust placed in <strong>connectors, plugins and third-party tools</strong>, including whether a trusted integration can change behaviour after approval.</li>
+<li>Check provenance and change control for models, prompts and dependencies that feed the pipeline.</li>
+</ul>
+
+<h3><span class="ph">P11</span>Detection, reproducibility &amp; retest</h3>
+<p class="vec">Vectors validated · <b>abuse monitoring, reliable-vs-one-off measurement, regression suite, fix verification</b></p>
+<ul>
+<li>Review whether prompt-injection attempts, anomalous tool use and bulk retrieval are <strong>logged and alertable</strong>, or invisible.</li>
+<li>Because behaviour is non-deterministic, <strong>re-run each candidate finding</strong> enough times to separate a reliable failure from a lucky one, and record the success rate.</li>
+<li>Capture confirmed payloads as a <strong>regression suite</strong> so the same injection and authorisation tests re-run against every release, and retest fixes with the owning engineers.</li>
+</ul>
+
+</div>
+
+<hr/>
+
+<h2 id="outcomes"><span class="n">03</span>Impacts this method surfaces</h2>
+<p>Representative outcomes, one line each, framed as the class of impact the vectors above tend to reveal. All generalised and sanitised.</p>
+<div class="tbl"><table>
+<thead><tr><th>Vector</th><th>Representative impact</th><th>Typical severity</th></tr></thead>
+<tbody>
+<tr><td>RAG authorisation bypass</td><td>Retrieve another user's restricted documents because retrieval is scoped to the service, not the asking user</td><td class="sv c">Critical</td></tr>
+<tr><td>Indirect injection to tool call</td><td>Instructions hidden in a support ticket make the assistant take an unintended action under its own identity</td><td class="sv c">Critical</td></tr>
+<tr><td>Excessive tool agency</td><td>A normal user triggers a high-impact action with no secondary authorisation</td><td class="sv h">High</td></tr>
+<tr><td>Autonomous workflow subversion</td><td>An inbound email drives an automated flow to execute attacker-controlled instructions with no human in the loop</td><td class="sv h">High</td></tr>
+<tr><td>Output-channel exfiltration</td><td>A poisoned knowledge-base document smuggles data out through an auto-loaded markdown image URL</td><td class="sv h">High</td></tr>
+<tr><td>System-prompt &amp; config leakage</td><td>Direct injection reveals the system prompt, tool definitions and embedded configuration</td><td class="sv m">Medium</td></tr>
+<tr><td>Over-broad retrieval</td><td>Secrets or personal data embedded in indexed content returned in ordinary answers</td><td class="sv m">Medium</td></tr>
+<tr><td>Object-level access control</td><td>Another user's conversations or uploads reachable through the orchestration API</td><td class="sv h">High</td></tr>
+</tbody></table></div>
+
+<hr/>
+
+<h2 id="priorities"><span class="n">04</span>Defensive priorities</h2>
+<p>The method keeps pointing at the same handful of leveraged fixes.</p>
+<ul>
+<li><strong>Enforce the user's permissions at retrieval.</strong> Scope every RAG query to the asking user and tenant, never to the service identity. This closes the highest-impact class above.</li>
+<li><strong>Treat all ingested content as untrusted.</strong> Tickets, documents, emails and files are data, not instructions. Isolate them from the instruction channel and never let their text alone authorise an action.</li>
+<li><strong>Put a human in the loop for consequence.</strong> Require explicit, out-of-band authorisation for high-impact or irreversible tool actions, especially inside autonomous workflows.</li>
+<li><strong>Constrain tools to least privilege.</strong> Give each tool the narrowest capability the task needs, and apply per-action authorisation rather than a single broad identity.</li>
+<li><strong>Sanitise output.</strong> Render model output safely and strip or gate auto-loading links and images that can exfiltrate; sanitise anything a downstream system will consume.</li>
+<li><strong>Log and regression-test.</strong> Make prompt-injection and anomalous tool use visible, and keep a standing suite of injection and authorisation tests that runs against every release.</li>
+</ul>
+
+
+
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <span class="mark"><svg class="lg" viewBox="20 20 60 60" aria-hidden="true"><path pathLength="1" d="M72,30 L30,30 L30,70 L70,70 L70,50 L50,50" fill="none" stroke="currentColor" stroke-width="9"/><rect x="37" y="45.5" width="9" height="9" fill="currentColor"/></svg>ghost_sec&nbsp;<span class="w">writes</span></span>
+      <p>Offensive security and AI red team research by @ghost_sec. All write-ups are for educational purposes only.</p>
+    </div>
+    <div>
+      <h4>This piece</h4>
+      <ul>
+        <li><a href="#anatomy">Anatomy of the target</a></li>
+        <li><a href="#methodology">Methodology</a></li>
+        <li><a href="#outcomes">Impacts</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Elsewhere</h4>
+      <ul>
+        <li><a href="./">All writing</a></li>
+        <li><a href="https://www.linkedin.com/in/ridros/" target="_blank" rel="noopener">LinkedIn</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">&copy; 2025 Ghost Sec Writes. All rights reserved.</div>
+</footer>
+
+<script>
+function toggleTheme(){
+  var root=document.documentElement;
+  var current=root.getAttribute('data-theme');
+  var next=current==='dark'?'light':current==='light'?'dark':
+    window.matchMedia('(prefers-color-scheme:dark)').matches?'light':'dark';
+  root.setAttribute('data-theme',next);
+  try{localStorage.setItem('ghost-theme',next)}catch(e){}
+}
+(function(){
+  try{var t=localStorage.getItem('ghost-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Bypassing Enterprise Firewalls with Trusted Infrastructure — Ghost Sec Writes</title>
+<meta name="description" content="A red team methodology for bypassing enterprise firewalls, web proxies, and content filters by chaining living-off-trusted-sites, cloud tunnels, and reverse proxy redirectors without dropping a single binary."/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0a0a0a; --ink:#141414; --paper:#ffffff; --paper-2:#f6f4f1;
+  --red:#d0021b; --red-deep:#a80016; --red-wash:#f6ccd3;
+  --muted:#6b6b6b; --line:#e4e1dc; --line-strong:#111;
+  --wrap:760px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-size:18px;line-height:1.72;-webkit-font-smoothing:antialiased;}
+::selection{background:var(--red);color:#fff}
+
+.topbar{position:sticky;top:0;z-index:50;background:var(--paper);border-bottom:1px solid var(--line);}
+.topbar-inner{max-width:1080px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.mark{font-family:"Fraunces",serif;font-weight:600;font-size:20px;letter-spacing:-.3px;color:var(--black);text-decoration:none;display:flex;align-items:center;gap:10px;}
+.mark .sq{width:12px;height:12px;background:var(--red);display:inline-block;transform:rotate(45deg)}
+.topbar .back{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--muted);text-decoration:none}
+.topbar .back:hover{color:var(--red)}
+.topbar-right{display:flex;align-items:center;gap:16px}
+
+.hero{max-width:var(--wrap);margin:0 auto;padding:72px 28px 44px;}
+.kicker{display:inline-flex;align-items:center;gap:10px;font-family:"JetBrains Mono",monospace;
+  font-size:12px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--red);margin-bottom:26px;}
+.kicker::before{content:"";width:28px;height:2px;background:var(--red)}
+.hero h1{font-family:"Fraunces",serif;font-weight:600;line-height:1.08;
+  font-size:clamp(34px,6vw,56px);margin:0 0 24px;letter-spacing:-1px;color:var(--black);}
+.hero .standfirst{font-size:21px;line-height:1.55;color:#36352f;max-width:62ch;margin:0 0 34px;}
+.byline{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px;color:var(--muted);padding-top:22px;border-top:1px solid var(--line-strong);}
+.byline b{color:var(--ink);font-weight:600}
+.byline .tag{color:var(--red);font-weight:600;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase}
+
+.article{max-width:var(--wrap);margin:0 auto;padding:10px 28px 40px;}
+.article h2{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(26px,4vw,34px);line-height:1.15;margin:66px 0 20px;letter-spacing:-.5px;color:var(--black);scroll-margin-top:84px;}
+.article h2 .n{color:var(--red);font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:500;vertical-align:super;margin-right:10px}
+.article h3{font-family:"Fraunces",serif;font-weight:600;font-size:23px;margin:44px 0 10px;letter-spacing:-.3px;color:var(--black);scroll-margin-top:84px;}
+.article h4{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:var(--red);margin:26px 0 8px;}
+.article p{margin:0 0 18px}
+.article strong{color:var(--black);font-weight:600}
+.article em{font-style:italic}
+.article ul,.article ol{margin:0 0 20px;padding-left:4px;list-style:none}
+.article ul li,.article ol li{position:relative;padding-left:26px;margin:9px 0}
+.article ul li::before{content:"";position:absolute;left:4px;top:11px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+.article ol{counter-reset:ol}.article ol li{counter-increment:ol}
+.article ol li::before{content:counter(ol);position:absolute;left:0;top:0;font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:600;color:var(--red)}
+.lead{font-size:20px;color:#36352f;line-height:1.6}
+hr{border:0;height:1px;background:var(--line);margin:56px 0}
+.article > .lead:first-of-type::first-letter{font-family:"Fraunces",serif;font-weight:600;font-size:66px;line-height:.8;float:left;padding:6px 12px 0 0;color:var(--red);}
+code{font-family:"JetBrains Mono",monospace;font-size:.84em;background:var(--paper-2);color:var(--red-deep);padding:2px 6px;border-radius:3px;border:1px solid var(--line);}
+
+.note{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--red);padding:20px 24px;margin:28px 0;font-size:15.5px;color:#403f39;border-radius:0 3px 3px 0;}
+.note strong{color:var(--black)}
+.deep{background:#0d0d0d;color:#e8e4dd;border-radius:8px;padding:28px 28px 24px;margin:30px 0;border:1px solid #000}
+.deep h4{color:var(--red);margin-top:22px}
+.deep h4:first-child{margin-top:0}
+.deep p{margin:0 0 14px;font-size:16px;color:#d7d3cc}
+.deep strong{color:#fff}
+.deep .tagline{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#7d7a74}
+.deep ul{margin:0 0 14px;padding-left:4px;list-style:none}
+.deep li{position:relative;padding-left:22px;margin:7px 0;font-size:15px;color:#d7d3cc}
+.deep li::before{content:"";position:absolute;left:4px;top:10px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+.pull{font-family:"Fraunces",serif;font-weight:500;font-size:25px;line-height:1.3;color:var(--black);border-top:2px solid var(--black);border-bottom:2px solid var(--black);padding:26px 0;margin:38px 0;letter-spacing:-.3px;}
+.pull .accent{color:var(--red)}
+
+.tbl{overflow-x:auto;margin:0 0 26px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{background:var(--black);color:#fff;font-family:"JetBrains Mono",monospace;font-weight:500;font-size:11.5px;letter-spacing:1px;text-transform:uppercase;border-bottom:none}
+tbody tr:hover{background:var(--paper-2)}
+
+/* rail timeline */
+.rail{counter-reset:rail;margin:26px 0 30px;border-left:2px solid var(--line)}
+.rail .node{position:relative;padding:3px 0 20px 46px;counter-increment:rail}
+.rail .node::before{content:counter(rail);position:absolute;left:-15px;top:0;width:28px;height:28px;
+  background:var(--black);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:600}
+.rail .node b{color:var(--red)}
+.rail .node .t{font-weight:600;color:var(--black)}
+
+/* flow diagram — vertical */
+.flow-diagram{background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:32px 28px;margin:28px 0}
+.flow-col{display:flex;flex-direction:column;align-items:center;gap:0}
+.flow-box{background:var(--black);color:#fff;font-family:"JetBrains Mono",monospace;font-size:13px;
+  padding:16px 24px;text-align:center;border-radius:4px;width:100%;max-width:400px}
+.flow-box.red{background:var(--red)}
+.flow-box.outline{background:transparent;border:2px solid var(--line-strong);color:var(--ink)}
+.flow-arrow{font-family:"JetBrains Mono",monospace;font-size:20px;color:var(--red);padding:6px 0;flex:none}
+.flow-label{display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:5px;font-family:"JetBrains Mono",monospace}
+
+/* phase cards */
+.phase{border:1px solid var(--line);border-top:3px solid var(--red);padding:22px 24px;margin:22px 0}
+.phase b{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--red);display:block;margin-bottom:4px}
+.phase .title{font-family:"Fraunces",serif;font-weight:600;font-size:19px;margin-bottom:8px;color:var(--black)}
+.phase p{font-size:15.5px;color:#43423c;margin:0 0 10px}
+
+.foot{background:var(--black);color:#b8b5af;margin-top:70px}
+.foot-inner{max-width:1080px;margin:0 auto;padding:56px 28px 28px;display:grid;grid-template-columns:1.8fr 1fr 1fr;gap:40px}
+.foot .mark{color:#fff}.foot .mark .sq{background:var(--red)}
+.foot p{font-size:14px;line-height:1.65;max-width:38ch;margin:16px 0 0;color:#8f8c86}
+.foot h4{color:#fff;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 16px}
+.foot ul{list-style:none;margin:0;padding:0}.foot li{margin:9px 0}
+.foot a{color:#b8b5af;text-decoration:none;font-size:14px}.foot a:hover{color:var(--red)}
+.foot-bottom{border-top:1px solid #222;text-align:center;padding:20px 28px;font-size:12px;color:#6b6762;font-family:"JetBrains Mono",monospace;letter-spacing:.5px}
+@media(max-width:760px){.foot-inner{grid-template-columns:1fr;gap:28px}.hero{padding-top:52px}}
+
+.theme-toggle{background:none;border:1px solid var(--line);color:var(--muted);font-size:20px;cursor:pointer;padding:4px 10px;border-radius:4px;line-height:1;transition:color .2s,border-color .2s}
+.theme-toggle:hover{color:var(--red);border-color:var(--red)}
+
+@media(prefers-color-scheme:dark){
+:root:not([data-theme='light']){
+  --black:#f0f0f0;--ink:#e0ddd8;--paper:#0a0a0a;--paper-2:#141414;
+  --red:#e8334a;--red-deep:#ff6b7a;--red-wash:#2a0a0f;
+  --muted:#8a8a8a;--line:#2a2a2a;--line-strong:#ddd;
+}
+:root:not([data-theme='light']) .deep{background:#161616;border-color:#222}
+:root:not([data-theme='light']) .hero .standfirst,:root:not([data-theme='light']) .lead{color:#c0bdb6}
+:root:not([data-theme='light']) .note{background:#141414;border-color:#2a2a2a;border-left-color:var(--red);color:#c0bdb6}
+:root:not([data-theme='light']) .pull{border-color:#ddd}
+:root:not([data-theme='light']) thead th{background:#1a1a1a}
+:root:not([data-theme='light']) tbody tr:hover{background:#141414}
+:root:not([data-theme='light']) td,:root:not([data-theme='light']) th{border-bottom-color:#2a2a2a}
+:root:not([data-theme='light']) code{background:#1a1a1a;border-color:#2a2a2a;color:var(--red)}
+:root:not([data-theme='light']) .phase{border-color:#2a2a2a;border-top-color:var(--red)}
+:root:not([data-theme='light']) .phase p{color:#b0ada6}
+:root:not([data-theme='light']) .flow-diagram{background:#141414;border-color:#2a2a2a}
+:root:not([data-theme='light']) .flow-box.outline{border-color:#ddd;color:var(--ink)}
+:root:not([data-theme='light']) .rail{border-left-color:#2a2a2a}
+:root:not([data-theme='light']) .foot{background:#050505}
+:root:not([data-theme='light']) .foot p{color:#6b6762}
+:root:not([data-theme='light']) .foot a{color:#8a8a8a}
+:root:not([data-theme='light']) .foot-bottom{border-top-color:#1a1a1a}
+:root:not([data-theme='light']) ::selection{background:var(--red);color:#fff}
+}
+[data-theme='dark']{
+  --black:#f0f0f0;--ink:#e0ddd8;--paper:#0a0a0a;--paper-2:#141414;
+  --red:#e8334a;--red-deep:#ff6b7a;--red-wash:#2a0a0f;
+  --muted:#8a8a8a;--line:#2a2a2a;--line-strong:#ddd;
+}
+[data-theme='dark'] .deep{background:#161616;border-color:#222}
+[data-theme='dark'] .hero .standfirst,[data-theme='dark'] .lead{color:#c0bdb6}
+[data-theme='dark'] .note{background:#141414;border-color:#2a2a2a;border-left-color:var(--red);color:#c0bdb6}
+[data-theme='dark'] .pull{border-color:#ddd}
+[data-theme='dark'] thead th{background:#1a1a1a}
+[data-theme='dark'] tbody tr:hover{background:#141414}
+[data-theme='dark'] td,[data-theme='dark'] th{border-bottom-color:#2a2a2a}
+[data-theme='dark'] code{background:#1a1a1a;border-color:#2a2a2a;color:var(--red)}
+[data-theme='dark'] .phase{border-color:#2a2a2a;border-top-color:var(--red)}
+[data-theme='dark'] .phase p{color:#b0ada6}
+[data-theme='dark'] .flow-diagram{background:#141414;border-color:#2a2a2a}
+[data-theme='dark'] .flow-box.outline{border-color:#ddd;color:var(--ink)}
+[data-theme='dark'] .rail{border-left-color:#2a2a2a}
+[data-theme='dark'] .foot{background:#050505}
+[data-theme='dark'] .foot p{color:#6b6762}
+[data-theme='dark'] .foot a{color:#8a8a8a}
+[data-theme='dark'] .foot-bottom{border-top-color:#1a1a1a}
+[data-theme='dark'] ::selection{background:var(--red);color:#fff}
+
+.mark{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:17px;letter-spacing:-.3px;gap:10px}
+.mark .lg{width:22px;height:22px;flex:none;display:block}
+.mark .w{opacity:.5;font-weight:400}
+.mark .lg path{stroke-dasharray:1;stroke-dashoffset:1;animation:gsd 1.1s cubic-bezier(.6,0,.2,1) forwards}
+.mark .lg rect{opacity:0;animation:gsb 1.1s steps(1) 1.15s infinite}
+.foot .mark .lg path{animation:none;stroke-dashoffset:0}
+@keyframes gsd{to{stroke-dashoffset:0}}
+@keyframes gsb{0%{opacity:1}50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.mark .lg path{animation:none;stroke-dashoffset:0}.mark .lg rect{animation:none;opacity:1}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="mark" href="./"><svg class="lg" viewBox="20 20 60 60" aria-hidden="true"><path pathLength="1" d="M72,30 L30,30 L30,70 L70,70 L70,50 L50,50" fill="none" stroke="currentColor" stroke-width="9"/><rect x="37" y="45.5" width="9" height="9" fill="currentColor"/></svg>ghost_sec&nbsp;<span class="w">writes</span></a>
+    <div class="topbar-right">
+      <a class="back" href="./">&#8592; All writing</a>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <span class="kicker">Red Team &middot; Methodology</span>
+  <h1>Bypassing enterprise firewalls with trusted infrastructure</h1>
+  <p class="standfirst">How to tunnel through firewalls, web proxies, and content filters without dropping a binary or touching PowerShell: living off trusted sites, cloud tunnels as reverse proxies, and an nginx redirector that makes attacker traffic indistinguishable from legitimate cloud platform usage.</p>
+  <div class="byline">
+    <span><b>@ghost_sec</b></span>
+    <span>Network evasion methodology</span>
+    <span class="tag">Educational write-up</span>
+  </div>
+</section>
+
+<main class="article">
+
+<h2 id="problem"><span class="n">00</span>The problem</h2>
+<p class="lead">Enterprise networks do not let traffic out freely. Outbound connections pass through web proxies that inspect destinations against category databases, URL reputation lists, and TLS inspection engines. Content filters block known malicious domains. Firewalls restrict egress to approved ports and protocols. For a red team operator who has landed on an internal workstation, the challenge is not getting code execution. It is getting that code to talk to the outside world without triggering a single alert.</p>
+<p>The conventional approach is to drop a payload, open a reverse shell, and hope the C2 domain survives long enough. That approach fails against mature environments. The proxy blocks unknown domains. The firewall logs unusual port usage. The EDR flags PowerShell reaching out to an external IP. The SOC is watching.</p>
+<p>This methodology takes a different path. Instead of fighting the controls, it <strong>uses them</strong>. The firewall trusts certain cloud platforms. The proxy allows traffic to certain domain patterns. The content filter categorises certain hosting providers as legitimate business tools. By hosting attacker infrastructure on those trusted platforms and routing traffic through them, the red team's communications become invisible inside the noise of normal corporate internet usage.</p>
+
+<div class="note"><strong>Note.</strong> This write-up is for educational purposes only. The techniques described illustrate offensive security methodology and are intended to help defenders understand and improve their detection capabilities.</div>
+
+<hr/>
+
+<h2 id="lots"><span class="n">01</span>Living Off Trusted Sites (LOTS)</h2>
+<p>The concept is well-established in red team tradecraft and goes by the name <strong>LOTS: Living Off Trusted Sites</strong>. Most enterprise firewalls and web proxies maintain allowlists, either explicit or implicit, for cloud platforms that the business depends on. If the organisation uses Azure, then <code>*.azurewebsites.net</code> is almost certainly permitted through the proxy. If they use GitHub for anything, <code>*.github.io</code> passes. The same applies to other major platforms:</p>
+<ul>
+<li><code>*.azurewebsites.net</code> — Azure App Service</li>
+<li><code>*.github.io</code> — GitHub Pages</li>
+<li><code>*.herokuapp.com</code> — Heroku</li>
+<li><code>*.firebaseapp.com</code> — Google Firebase Hosting</li>
+<li><code>*.cloudfront.net</code> — AWS CloudFront CDN</li>
+<li><code>*.netlify.app</code> — Netlify</li>
+<li><code>*.vercel.app</code> — Vercel</li>
+<li><code>*.workers.dev</code> — Cloudflare Workers</li>
+</ul>
+<p>These are not obscure domains. They are the backbone of modern cloud hosting. Organisations trust them because they run their own applications on them. The attacker's job is to figure out which ones the target trusts, and then host attacker infrastructure on the same platform.</p>
+
+<h3>Reconnaissance: what do they trust?</h3>
+<p>This is not guesswork. The target's trusted platforms leak from half a dozen passive sources, none of which require touching the target network:</p>
+<ul>
+<li><strong>Job descriptions.</strong> Engineering job postings name the cloud platforms, CI/CD tools, and infrastructure stack the team uses daily. A posting that asks for experience with a specific cloud provider tells the red team which provider's domains the proxy will allow.</li>
+<li><strong>DNS records.</strong> Passive DNS enumeration reveals CNAME chains pointing to cloud hosting platforms, CDN edges, and SaaS providers. If the target's public-facing applications resolve to a specific platform's infrastructure, that platform's domain pattern is trusted internally.</li>
+<li><strong>LinkedIn profiles.</strong> Developers and DevOps engineers list their tooling stack on their profiles. Security engineers often list the products they administer. A profile that mentions a specific web application firewall or proxy product tells the red team what they are bypassing.</li>
+<li><strong>Technology fingerprinting.</strong> HTTP response headers, JavaScript library versions, and cookie names on the target's public sites reveal the hosting platform, the CDN, and often the proxy or WAF in front of them.</li>
+<li><strong>Public repositories.</strong> Configuration files, deployment scripts, and infrastructure-as-code templates in public repositories reveal the cloud platforms, domain patterns, and service configurations the organisation depends on.</li>
+</ul>
+<p>The output of this reconnaissance is a short list of cloud platform domain patterns that the target's proxy and firewall will allow without inspection. That list is the foundation of everything that follows.</p>
+
+<div class="deep">
+  <p class="tagline">Technique</p>
+  <h4>Choosing the right platform</h4>
+  <p>Not every trusted platform is equally useful. The ideal platform for hosting attacker infrastructure has three properties:</p>
+  <ul>
+    <li><strong>Wildcard trust.</strong> The proxy allows <code>*.platform.tld</code>, not just specific subdomains. This means the attacker can create a new subdomain and it is automatically trusted.</li>
+    <li><strong>Free or anonymous hosting.</strong> The platform allows hosting static sites or web applications without identity verification that would expose the red team.</li>
+    <li><strong>HTTPS by default.</strong> The hosted site gets a valid TLS certificate automatically, so the traffic looks like legitimate encrypted web browsing.</li>
+  </ul>
+  <p>Major cloud app-hosting services and static-site hosting platforms meet all three criteria. The attacker creates a site on the platform, gets a subdomain under the trusted wildcard, and the proxy waves it through.</p>
+</div>
+
+<hr/>
+
+<h2 id="connectivity"><span class="n">02</span>Testing connectivity without raising alerts</h2>
+<p>Once the attacker has internal network access, the first question is: can I reach my infrastructure? The wrong way to answer this is to open PowerShell and make an outbound HTTP request. That triggers EDR telemetry, proxy logs, and potentially a behavioural alert.</p>
+<p>The right way is quieter. If the trusted-site infrastructure is already hosted and publicly accessible, the attacker can simply open a web browser on the compromised workstation and navigate to it. A user opening a browser and visiting a site on a trusted cloud platform is the most normal thing that happens on a corporate network. It generates no alert, no unusual process tree, no suspicious command-line argument.</p>
+<p>This also serves as a connectivity test. If the page loads, the full chain works: DNS resolves, the proxy allows the domain, the firewall permits the port, and TLS terminates cleanly. If it does not load, the attacker knows which layer is blocking before committing to a more complex technique.</p>
+
+<p class="pull">The best connectivity test is the one that looks like <span class="accent">a user browsing the web</span>, because that is exactly what the monitoring stack is configured to ignore.</p>
+
+<hr/>
+
+<h2 id="tunnel"><span class="n">03</span>Cloud tunnels: reverse access without malware</h2>
+<p>The next challenge is turning that outbound web connectivity into a reverse channel back to the attacker's environment. Traditionally this requires dropping a reverse shell binary, which the EDR will flag, or running a scripted payload, which the proxy will log.</p>
+<p>Cloud tunnel services solve this differently. These services create an encrypted tunnel from a machine inside the network to an external endpoint, wrapping the traffic in standard HTTPS. From the perspective of the firewall and proxy, the traffic is an outbound HTTPS connection to a well-known cloud provider's infrastructure. It passes through every inspection layer because the protocol, the port, and the destination are all legitimate.</p>
+<p>The tunnel terminates at the attacker's server, giving the attacker a reverse connection into the target network without dropping a binary, without running PowerShell, and without making a single connection to a suspicious domain.</p>
+
+<h3>The limitation</h3>
+<p>There is one problem. The cloud tunnel service requires the attacker to configure a destination domain, and that domain is the attacker's own. It cannot be pointed at the trusted-site subdomain directly, because the tunnel service needs to know where to route traffic. The tunnel endpoint is the attacker's domain, not the trusted platform's domain.</p>
+<p>This means the tunnel alone does not solve the proxy bypass. The traffic from the internal machine still needs to go to the trusted-site domain, not the attacker's tunnel domain. The proxy would block a direct connection to an unknown domain. What is needed is a way to chain the two together: the trusted site receives the traffic, and the tunnel carries it to the attacker.</p>
+
+<hr/>
+
+<h2 id="redirector"><span class="n">04</span>The nginx redirector: chaining trusted sites with tunnels</h2>
+<p>This is where the technique comes together. The trusted-site subdomain is not just a static page. It runs a reverse proxy, specifically nginx, configured to rewrite and forward all traffic it receives to the cloud tunnel endpoint.</p>
+
+<h3>How it works</h3>
+<p>The nginx instance on the trusted-site platform receives incoming requests on the trusted subdomain. It rewrites the <code>Host</code> header, replacing the trusted-site hostname with the attacker's tunnel hostname, and proxies the request to the tunnel endpoint. The tunnel service receives the request, forwards it through the encrypted tunnel to the attacker's server, and returns the response through the same chain in reverse. The nginx instance rewrites the response headers back to the trusted-site hostname before returning them to the client.</p>
+<p>From the internal machine's perspective, it is talking to a trusted cloud platform over HTTPS. From the proxy's perspective, it is allowing traffic to a known-good domain. From the firewall's perspective, it is standard port 443 traffic. The cloud tunnel wraps the actual payload in HTTPS, so even TLS inspection that terminates at the proxy sees only a legitimate-looking web request to a trusted platform.</p>
+
+<div class="flow-diagram">
+  <div class="flow-col">
+    <div class="flow-box outline">Internal host<span class="flow-label">Compromised workstation</span></div>
+    <span class="flow-arrow">&darr;</span>
+    <div class="flow-box">Web proxy<span class="flow-label">Allows trusted domain</span></div>
+    <span class="flow-arrow">&darr;</span>
+    <div class="flow-box red">LOTS site + nginx redirector<span class="flow-label">Rewrites Host header to tunnel domain</span></div>
+    <span class="flow-arrow">&darr;</span>
+    <div class="flow-box">Cloud tunnel<span class="flow-label">SSH over HTTPS</span></div>
+    <span class="flow-arrow">&darr;</span>
+    <div class="flow-box outline">Attacker server<span class="flow-label">C2 / tooling environment</span></div>
+  </div>
+</div>
+
+<h3>The header rewrite in detail</h3>
+<p>The nginx configuration is minimal. It listens on the trusted-site's default port, accepts all incoming requests, and uses <code>proxy_pass</code> to forward them to the cloud tunnel endpoint. The critical directives are the header rewrites: <code>proxy_set_header Host</code> replaces the incoming trusted-site hostname with the tunnel hostname on the way out, and <code>proxy_redirect</code> performs the reverse substitution on the way back. The effect is that neither the client nor the proxy ever sees the tunnel hostname. It exists only in the connection between the trusted-site platform and the tunnel service, both of which are external to the target's monitoring.</p>
+
+<div class="deep">
+  <p class="tagline">Architecture</p>
+  <h4>Why this chain defeats each control layer</h4>
+  <ul>
+    <li><strong>Firewall.</strong> Sees outbound HTTPS on port 443 to a known cloud platform IP range. Allowed.</li>
+    <li><strong>Web proxy.</strong> Sees a request to a subdomain under a trusted wildcard pattern. Domain categorisation returns "cloud hosting" or "business application". Allowed.</li>
+    <li><strong>Content filter.</strong> The URL pattern matches a legitimate cloud-hosted application. No malicious indicators. Allowed.</li>
+    <li><strong>TLS inspection.</strong> Even if the proxy terminates TLS, it sees a standard HTTPS request to a trusted domain. The payload is a normal-looking HTTP exchange. The actual tunnel traffic is opaque inside the cloud tunnel's own encryption layer.</li>
+    <li><strong>EDR.</strong> No PowerShell, no scripted payload, no suspicious process. The traffic originates from a browser or a standard HTTP client making a request to a trusted site.</li>
+    <li><strong>SOC.</strong> The traffic blends perfectly with the thousands of other requests to the same cloud platform that happen every hour. There is no anomaly to investigate.</li>
+  </ul>
+</div>
+
+<hr/>
+
+<h2 id="opsec"><span class="n">05</span>Operational considerations</h2>
+
+<h3>Infrastructure setup sequence</h3>
+<p>The order matters. The trusted-site and the tunnel must be operational before the attacker needs them on the internal network. Setting up infrastructure during an engagement window wastes time and increases the risk of being observed. The full chain should be tested from an external network against the same proxy and firewall configuration (often discoverable from the target's remote-access portal or VPN endpoint) before the internal phase begins.</p>
+
+<h3>Domain and subdomain selection</h3>
+<p>The subdomain on the trusted platform should not look suspicious on casual inspection. A name that resembles a legitimate internal application, a development environment, or a testing instance blends better than a random string. The attacker's tunnel domain is never visible to the target's monitoring, so it is less critical, but using a plausible domain with a valid certificate is good practice in case any layer inspects the tunnel connection.</p>
+
+<h3>Persistence and rotation</h3>
+<p>Trusted-site subdomains can be rotated quickly if one is burned. The nginx configuration is identical across instances; only the subdomain changes. The tunnel endpoint remains the same. This gives the attacker rapid recovery if the SOC blocks a specific subdomain, because the replacement is immediately trusted under the same wildcard pattern.</p>
+
+<h3>Bandwidth and latency</h3>
+<p>The chain adds latency: internal host to proxy to trusted site to tunnel to attacker. For interactive shells and real-time tool output, this is noticeable. For file transfers, command execution, and asynchronous tasking, it is acceptable. The cloud tunnel's throughput is usually the bottleneck, but for red team operations that prioritise stealth over speed, the trade-off is worth it.</p>
+
+<hr/>
+
+<h2 id="defence"><span class="n">06</span>Why it works and how to stop it</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Defensive assumption</th><th>What actually happens</th><th>Defensive improvement</th></tr></thead>
+<tbody>
+<tr><td>Blocking unknown domains is sufficient</td><td>The attacker uses domains the firewall explicitly trusts</td><td>Monitor for new subdomains under trusted wildcards. Alert on first-seen subdomains in cloud platform ranges.</td></tr>
+<tr><td>TLS inspection catches malicious payloads</td><td>The payload is double-encrypted: once by the HTTPS connection to the trusted site, and again by the cloud tunnel</td><td>Inspect the content of requests to cloud platforms, not just the domain. Look for proxy-like behaviour in responses.</td></tr>
+<tr><td>EDR catches reverse shells</td><td>No binary is dropped. No PowerShell runs. The traffic is standard HTTPS from a browser process.</td><td>Behavioural baselines for cloud platform usage per user and per machine. Alert on workstations that suddenly start making sustained connections to cloud app-hosting subdomains.</td></tr>
+<tr><td>Category-based filtering is granular enough</td><td>The trusted site is categorised as "cloud hosting", the same category as the organisation's own applications</td><td>Move from wildcard trust to explicit subdomain allowlisting for cloud platforms. Only permit the specific subdomains the organisation actually uses.</td></tr>
+<tr><td>Proxy logs capture the real destination</td><td>The proxy sees only the trusted-site domain. The tunnel hostname never appears in any log the target can see.</td><td>Deploy cloud-platform-specific monitoring that tracks subdomain creation and usage patterns. Correlate proxy logs with cloud platform audit logs where available.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The core lesson is that <strong>wildcard trust is transitive trust</strong>. When an organisation allows <code>*.azurewebsites.net</code> or <code>*.github.io</code>, it is not trusting the platform. It is trusting every user of that platform, including the red team. Moving to explicit subdomain allowlisting is the single highest-impact defence, and it is the one that almost nobody implements because it breaks the convenience model that cloud platforms are built on.</p>
+
+<p class="pull">The firewall was not bypassed. It was <span class="accent">obeyed</span>. Every packet followed the rules. The rules just did not anticipate an attacker who would follow them too.</p>
+
+<hr/>
+
+<h2 id="chain"><span class="n">07</span>The full chain at a glance</h2>
+
+<div class="rail">
+  <div class="node"><span class="t">Passive reconnaissance.</span> Enumerate the target's cloud platforms from job postings, DNS records, LinkedIn profiles, and public repositories. Identify which wildcard domain patterns the proxy and firewall trust.</div>
+  <div class="node"><span class="t">Host the trusted site.</span> Create a subdomain on the trusted platform. Deploy an nginx instance configured as a reverse proxy that rewrites headers and forwards traffic to the cloud tunnel endpoint.</div>
+  <div class="node"><span class="t">Establish the tunnel.</span> Configure a cloud tunnel service pointing at the attacker's server. The tunnel terminates HTTPS from the trusted site and forwards traffic to the attacker's C2 or tooling environment.</div>
+  <div class="node"><span class="t">Test externally.</span> From outside the target network, verify the full chain: browser request to the trusted subdomain returns content served by the attacker's server. Confirm the proxy would categorise the domain as trusted.</div>
+  <div class="node"><span class="t">Test internally.</span> From the compromised workstation, open a browser and navigate to the trusted subdomain. If the page loads, the firewall, proxy, and content filter all allow it. No commands run, no alerts fired.</div>
+  <div class="node"><span class="t">Establish the channel.</span> Point the C2 agent or tunnelling client at the trusted subdomain. The agent's traffic flows through the proxy to the trusted site, through nginx to the cloud tunnel, through the tunnel to the attacker. Every hop is HTTPS. Every domain is trusted. Every packet is legitimate.</div>
+</div>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <a class="mark" href="./"><svg class="lg" viewBox="20 20 60 60" aria-hidden="true"><path pathLength="1" d="M72,30 L30,30 L30,70 L70,70 L70,50 L50,50" fill="none" stroke="currentColor" stroke-width="9"/><rect x="37" y="45.5" width="9" height="9" fill="currentColor"/></svg>ghost_sec&nbsp;<span class="w">writes</span></a>
+      <p>Offensive security and AI red team research by @ghost_sec. All write-ups are for educational purposes only.</p>
+    </div>
+    <div>
+      <h4>Writing</h4>
+      <ul>
+        <li><a href="ai-red-team.html">AI Red Team Methodology</a></li>
+        <li><a href="ai-assistants.html">AI Assistants &amp; Workflow Apps</a></li>
+        <li><a href="firm-compromise.html">End-to-End Firm Compromise</a></li>
+        <li><a href="crypto-vault.html">Breaking a Crypto Vault</a></li>
+        <li><a href="otp-takeover.html">OTP Account Takeover</a></li>
+        <li><a href="edr-bypass.html">Bypassing EDR</a></li>
+        <li><a href="harness-engineering.html">Harness Engineering</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Connect</h4>
+      <ul>
+        <li><a href="https://www.linkedin.com/in/ridros/">LinkedIn</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">&copy; 2025 Ghost Sec Writes. All rights reserved.</div>
+</footer>
+
+<script>
+function toggleTheme(){
+  var root=document.documentElement;
+  var current=root.getAttribute('data-theme');
+  var next=current==='dark'?'light':current==='light'?'dark':
+    window.matchMedia('(prefers-color-scheme:dark)').matches?'light':'dark';
+  root.setAttribute('data-theme',next);
+  try{localStorage.setItem('ghost-theme',next)}catch(e){}
+}
+(function(){
+  try{var t=localStorage.getItem('ghost-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+})();
+</script>
+</body>
+</html>

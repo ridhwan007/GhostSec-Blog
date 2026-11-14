@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Offensive Security Harness Engineering — Ghost Sec Writes</title>
+<meta name="description" content="A deep methodology for engineering AI-driven offensive security harnesses: the control loop, scope policy, execution safety, state and memory, evidence validation, and multi-agent orchestration."/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0a0a0a; --ink:#141414; --paper:#ffffff; --paper-2:#f6f4f1;
+  --red:#d0021b; --red-deep:#a80016; --red-wash:#f6ccd3;
+  --muted:#6b6b6b; --line:#e4e1dc; --line-strong:#111;
+  --wrap:760px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-size:18px;line-height:1.72;-webkit-font-smoothing:antialiased;}
+::selection{background:var(--red);color:#fff}
+
+.topbar{position:sticky;top:0;z-index:50;background:var(--paper);border-bottom:1px solid var(--line);}
+.topbar-inner{max-width:1080px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.mark{font-family:"Fraunces",serif;font-weight:600;font-size:20px;letter-spacing:-.3px;color:var(--black);text-decoration:none;display:flex;align-items:center;gap:10px;}
+.mark .sq{width:12px;height:12px;background:var(--red);display:inline-block;transform:rotate(45deg)}
+.topbar .back{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--muted);text-decoration:none}
+.topbar .back:hover{color:var(--red)}
+.topbar-right{display:flex;align-items:center;gap:16px}
+
+.hero{max-width:var(--wrap);margin:0 auto;padding:72px 28px 44px;}
+.kicker{display:inline-flex;align-items:center;gap:10px;font-family:"JetBrains Mono",monospace;
+  font-size:12px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--red);margin-bottom:26px;}
+.kicker::before{content:"";width:28px;height:2px;background:var(--red)}
+.hero h1{font-family:"Fraunces",serif;font-weight:600;line-height:1.08;
+  font-size:clamp(34px,6vw,56px);margin:0 0 24px;letter-spacing:-1px;color:var(--black);}
+.hero .standfirst{font-size:21px;line-height:1.55;color:#36352f;max-width:62ch;margin:0 0 34px;}
+.byline{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px;color:var(--muted);padding-top:22px;border-top:1px solid var(--line-strong);}
+.byline b{color:var(--ink);font-weight:600}
+.byline .tag{color:var(--red);font-weight:600;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:1px;text-transform:uppercase}
+
+.article{max-width:var(--wrap);margin:0 auto;padding:10px 28px 40px;}
+.article h2{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(26px,4vw,34px);line-height:1.15;margin:66px 0 20px;letter-spacing:-.5px;color:var(--black);scroll-margin-top:84px;}
+.article h2 .n{color:var(--red);font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:500;vertical-align:super;margin-right:10px}
+.article h3{font-family:"Fraunces",serif;font-weight:600;font-size:23px;margin:44px 0 10px;letter-spacing:-.3px;color:var(--black);scroll-margin-top:84px;}
+.article h4{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500;letter-spacing:1.6px;text-transform:uppercase;color:var(--red);margin:26px 0 8px;}
+.article p{margin:0 0 18px}
+.article strong{color:var(--black);font-weight:600}
+.article em{font-style:italic}
+.article ul,.article ol{margin:0 0 20px;padding-left:4px;list-style:none}
+.article ul li,.article ol li{position:relative;padding-left:26px;margin:9px 0}
+.article ul li::before{content:"";position:absolute;left:4px;top:11px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+.article ol{counter-reset:ol}.article ol li{counter-increment:ol}
+.article ol li::before{content:counter(ol);position:absolute;left:0;top:0;font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:600;color:var(--red)}
+.lead{font-size:20px;color:#36352f;line-height:1.6}
+hr{border:0;height:1px;background:var(--line);margin:56px 0}
+.article > .lead:first-of-type::first-letter{font-family:"Fraunces",serif;font-weight:600;font-size:66px;line-height:.8;float:left;padding:6px 12px 0 0;color:var(--red);}
+code{font-family:"JetBrains Mono",monospace;font-size:.84em;background:var(--paper-2);color:var(--red-deep);padding:2px 6px;border-radius:3px;border:1px solid var(--line);}
+
+.note{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--red);padding:20px 24px;margin:28px 0;font-size:15.5px;color:#403f39;border-radius:0 3px 3px 0;}
+.note strong{color:var(--black)}
+.deep{background:#0d0d0d;color:#e8e4dd;border-radius:8px;padding:28px 28px 24px;margin:30px 0;border:1px solid #000}
+.deep h4{color:var(--red);margin-top:22px}
+.deep h4:first-child{margin-top:0}
+.deep p{margin:0 0 14px;font-size:16px;color:#d7d3cc}
+.deep strong{color:#fff}
+.deep .tagline{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#7d7a74}
+.deep ul{margin:0 0 14px;padding-left:4px;list-style:none}
+.deep li{position:relative;padding-left:22px;margin:7px 0;font-size:15px;color:#d7d3cc}
+.deep li::before{content:"";position:absolute;left:4px;top:10px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+.pull{font-family:"Fraunces",serif;font-weight:500;font-size:25px;line-height:1.3;color:var(--black);border-top:2px solid var(--black);border-bottom:2px solid var(--black);padding:26px 0;margin:38px 0;letter-spacing:-.3px;}
+.pull .accent{color:var(--red)}
+
+.tbl{overflow-x:auto;margin:0 0 26px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{background:var(--black);color:#fff;font-family:"JetBrains Mono",monospace;font-weight:500;font-size:11.5px;letter-spacing:1px;text-transform:uppercase;border-bottom:none}
+tbody tr:hover{background:var(--paper-2)}
+
+/* module cards */
+.mod{border:1px solid var(--line);border-top:3px solid var(--red);padding:24px 26px;margin:22px 0}
+.mod .label{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--red);display:block;margin-bottom:6px}
+.mod .title{font-family:"Fraunces",serif;font-weight:600;font-size:20px;margin-bottom:10px;color:var(--black)}
+.mod p{font-size:15.5px;color:#43423c;margin:0 0 10px}
+.mod ul{margin:6px 0 0;padding-left:4px;list-style:none}
+.mod li{position:relative;padding-left:22px;margin:6px 0;font-size:14.5px;color:#55544e}
+.mod li::before{content:"";position:absolute;left:4px;top:10px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+
+/* rail timeline */
+.rail{counter-reset:rail;margin:26px 0 30px;border-left:2px solid var(--line)}
+.rail .node{position:relative;padding:3px 0 20px 46px;counter-increment:rail}
+.rail .node::before{content:counter(rail);position:absolute;left:-15px;top:0;width:28px;height:28px;
+  background:var(--black);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:600}
+.rail .node b{color:var(--red)}
+.rail .node .t{font-weight:600;color:var(--black)}
+
+.foot{background:var(--black);color:#b8b5af;margin-top:70px}
+.foot-inner{max-width:1080px;margin:0 auto;padding:56px 28px 28px;display:grid;grid-template-columns:1.8fr 1fr 1fr;gap:40px}
+.foot .mark{color:#fff}.foot .mark .sq{background:var(--red)}
+.foot p{font-size:14px;line-height:1.65;max-width:38ch;margin:16px 0 0;color:#8f8c86}
+.foot h4{color:#fff;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 16px}
+.foot ul{list-style:none;margin:0;padding:0}.foot li{margin:9px 0}
+.foot a{color:#b8b5af;text-decoration:none;font-size:14px}.foot a:hover{color:var(--red)}
+.foot-bottom{border-top:1px solid #222;text-align:center;padding:20px 28px;font-size:12px;color:#6b6762;font-family:"JetBrains Mono",monospace;letter-spacing:.5px}
+@media(max-width:760px){.foot-inner{grid-template-columns:1fr;gap:28px}.hero{padding-top:52px}}
+
+.theme-toggle{background:none;border:1px solid var(--line);color:var(--muted);font-size:20px;cursor:pointer;padding:4px 10px;border-radius:4px;line-height:1;transition:color .2s,border-color .2s}
+.theme-toggle:hover{color:var(--red);border-color:var(--red)}
+
+@media(prefers-color-scheme:dark){
+:root:not([data-theme='light']){
+  --black:#f0f0f0;--ink:#e0ddd8;--paper:#0a0a0a;--paper-2:#141414;
+  --red:#e8334a;--red-deep:#ff6b7a;--red-wash:#2a0a0f;
+  --muted:#8a8a8a;--line:#2a2a2a;--line-strong:#ddd;
+}
+:root:not([data-theme='light']) .deep{background:#161616;border-color:#222}
+:root:not([data-theme='light']) .hero .standfirst,:root:not([data-theme='light']) .lead{color:#c0bdb6}
+:root:not([data-theme='light']) .note{background:#141414;border-color:#2a2a2a;border-left-color:var(--red);color:#c0bdb6}
+:root:not([data-theme='light']) .pull{border-color:#ddd}
+:root:not([data-theme='light']) thead th{background:#1a1a1a}
+:root:not([data-theme='light']) tbody tr:hover{background:#141414}
+:root:not([data-theme='light']) td,:root:not([data-theme='light']) th{border-bottom-color:#2a2a2a}
+:root:not([data-theme='light']) code{background:#1a1a1a;border-color:#2a2a2a;color:var(--red)}
+:root:not([data-theme='light']) .mod{border-color:#2a2a2a;border-top-color:var(--red)}
+:root:not([data-theme='light']) .mod p{color:#b0ada6}
+:root:not([data-theme='light']) .mod li{color:#b0ada6}
+:root:not([data-theme='light']) .phase{border-color:#2a2a2a;border-top-color:var(--red)}
+:root:not([data-theme='light']) .phase p{color:#b0ada6}
+:root:not([data-theme='light']) .rail{border-left-color:#2a2a2a}
+:root:not([data-theme='light']) .foot{background:#050505}
+:root:not([data-theme='light']) .foot p{color:#6b6762}
+:root:not([data-theme='light']) .foot a{color:#8a8a8a}
+:root:not([data-theme='light']) .foot-bottom{border-top-color:#1a1a1a}
+:root:not([data-theme='light']) ::selection{background:var(--red);color:#fff}
+}
+[data-theme='dark']{
+  --black:#f0f0f0;--ink:#e0ddd8;--paper:#0a0a0a;--paper-2:#141414;
+  --red:#e8334a;--red-deep:#ff6b7a;--red-wash:#2a0a0f;
+  --muted:#8a8a8a;--line:#2a2a2a;--line-strong:#ddd;
+}
+[data-theme='dark'] .deep{background:#161616;border-color:#222}
+[data-theme='dark'] .hero .standfirst,[data-theme='dark'] .lead{color:#c0bdb6}
+[data-theme='dark'] .note{background:#141414;border-color:#2a2a2a;border-left-color:var(--red);color:#c0bdb6}
+[data-theme='dark'] .pull{border-color:#ddd}
+[data-theme='dark'] thead th{background:#1a1a1a}
+[data-theme='dark'] tbody tr:hover{background:#141414}
+[data-theme='dark'] td,[data-theme='dark'] th{border-bottom-color:#2a2a2a}
+[data-theme='dark'] code{background:#1a1a1a;border-color:#2a2a2a;color:var(--red)}
+[data-theme='dark'] .mod{border-color:#2a2a2a;border-top-color:var(--red)}
+[data-theme='dark'] .mod p{color:#b0ada6}
+[data-theme='dark'] .mod li{color:#b0ada6}
+[data-theme='dark'] .phase{border-color:#2a2a2a;border-top-color:var(--red)}
+[data-theme='dark'] .phase p{color:#b0ada6}
+[data-theme='dark'] .rail{border-left-color:#2a2a2a}
+[data-theme='dark'] .foot{background:#050505}
+[data-theme='dark'] .foot p{color:#6b6762}
+[data-theme='dark'] .foot a{color:#8a8a8a}
+[data-theme='dark'] .foot-bottom{border-top-color:#1a1a1a}
+[data-theme='dark'] ::selection{background:var(--red);color:#fff}
+
+.mark{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:17px;letter-spacing:-.3px;gap:10px}
+.mark .lg{width:22px;height:22px;flex:none;display:block}
+.mark .w{opacity:.5;font-weight:400}
+.mark .lg path{stroke-dasharray:1;stroke-dashoffset:1;animation:gsd 1.1s cubic-bezier(.6,0,.2,1) forwards}
+.mark .lg rect{opacity:0;animation:gsb 1.1s steps(1) 1.15s infinite}
+.foot .mark .lg path{animation:none;stroke-dashoffset:0}
+@keyframes gsd{to{stroke-dashoffset:0}}
+@keyframes gsb{0%{opacity:1}50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.mark .lg path{animation:none;stroke-dashoffset:0}.mark .lg rect{animation:none;opacity:1}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="mark" href="./"><svg class="lg" viewBox="20 20 60 60" aria-hidden="true"><path pathLength="1" d="M72,30 L30,30 L30,70 L70,70 L70,50 L50,50" fill="none" stroke="currentColor" stroke-width="9"/><rect x="37" y="45.5" width="9" height="9" fill="currentColor"/></svg>ghost_sec&nbsp;<span class="w">writes</span></a>
+    <div class="topbar-right">
+      <a class="back" href="./">&#8592; All writing</a>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <span class="kicker">Engineering &middot; Deep Dive</span>
+  <h1>Offensive security harness engineering</h1>
+  <p class="standfirst">A methodology for building the orchestration layer that sits between AI models and offensive security tooling: scoped authorisation, safe execution, persistent memory, evidence collection, and multi-agent coordination, designed so the harness itself never becomes the vulnerability.</p>
+  <div class="byline">
+    <span><b>@ghost_sec</b></span>
+    <span>Architecture &amp; methodology</span>
+    <span class="tag">Research &amp; engineering</span>
+  </div>
+</section>
+
+<main class="article">
+
+<h2 id="thesis"><span class="n">00</span>The thesis</h2>
+<p class="lead">An AI model is not a harness. A prompt is not a harness. The model generates candidate actions. The harness decides which of those actions are authorised, executes them safely, records what happened, validates the evidence, and feeds the results back into the next planning cycle. If you conflate the model with the orchestration layer around it, you end up with an unscoped, unauditable system that can hurt the target, the operator, or itself.</p>
+<p>This is the architecture for separating the three concerns cleanly: the <strong>model</strong> (inference, planning, interpretation), the <strong>policy</strong> (what is and is not permitted), and the <strong>execution engine</strong> (how permitted actions are carried out, contained, recorded, and validated). The entire design rests on one principle: <strong>the model never touches the network, the filesystem, or the target directly</strong>. Every action passes through a deterministic policy gate and a sandboxed executor before anything leaves the harness.</p>
+
+<div class="note"><strong>Note.</strong> This write-up is for educational purposes only. The techniques described illustrate offensive security methodology and are intended to help defenders understand and improve their detection capabilities.</div>
+
+<hr/>
+
+<h2 id="overview"><span class="n">01</span>Architecture overview</h2>
+<p>The harness is organised into five modules, each with a distinct responsibility. They communicate through typed interfaces and share state through a structured memory layer, never through the model's context window alone.</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Module</th><th>Responsibility</th><th>Core principle</th></tr></thead>
+<tbody>
+<tr><td><strong>Inference &amp; routing</strong></td><td>Model interaction, multi-provider routing, budget control</td><td>The model proposes; it never executes</td></tr>
+<tr><td><strong>Scope policy</strong></td><td>Versioned authorisation, target boundaries, risk gating</td><td>Default-deny on every axis</td></tr>
+<tr><td><strong>Execution safety</strong></td><td>Sandboxed execution, egress control, credential isolation</td><td>Every action is contained and reversible until proven safe</td></tr>
+<tr><td><strong>State &amp; memory</strong></td><td>Planning, attack graph, persistent memory, checkpoint recovery</td><td>State lives outside the context window</td></tr>
+<tr><td><strong>Evidence &amp; validation</strong></td><td>Append-only evidence store, reproducibility, multi-agent verification</td><td>Every claim is independently verifiable</td></tr>
+</tbody>
+</table>
+</div>
+
+<p class="pull">The model is one component. The harness is <span class="accent">everything else</span>: the policy, the sandbox, the memory, the evidence chain, and the orchestration that ties them together.</p>
+
+<hr/>
+
+<h2 id="loop"><span class="n">02</span>The control loop</h2>
+<p>Every cycle of the harness follows the same six-stage loop. The loop is deterministic at the policy and execution layers, even though the planning layer is stochastic. That separation is the point: the model's uncertainty never leaks into what the harness actually does.</p>
+
+<div class="rail">
+  <div class="node"><span class="t">Observe.</span> Collect the current state: target responses, network telemetry, tool output, memory recall, and any new information from previous cycles. Assemble it into a structured observation that the planner can reason over.</div>
+  <div class="node"><span class="t">Plan.</span> The model receives the observation and proposes a set of candidate actions. This is where inference happens. The model's output is a structured proposal, not an executable command.</div>
+  <div class="node"><span class="t">Policy gate.</span> Every proposed action passes through the scope policy engine. The engine checks target boundaries, action type, protocol, risk level, timing constraints, and the current authorisation state. Anything not explicitly permitted is denied. No exceptions.</div>
+  <div class="node"><span class="t">Execute.</span> Approved actions are handed to the deterministic executor, which runs them inside an isolated sandbox with controlled egress, resource limits, and a temporary filesystem. The executor captures the full request, response, and any artefacts produced.</div>
+  <div class="node"><span class="t">Validate.</span> Results are checked against expected outcomes. Evidence is committed to the append-only store. If the result contradicts the plan or triggers a risk threshold, the loop escalates to human review or halts.</div>
+  <div class="node"><span class="t">Update.</span> Validated results are written into the persistent state layer: the attack graph is extended, memory is updated, coverage metrics are recalculated, and the next observation is seeded. The loop restarts.</div>
+</div>
+
+<hr/>
+
+<h2 id="inference"><span class="n">03</span>Module 1: Inference and model routing</h2>
+<p>The inference layer treats models as interchangeable backends behind a unified interface. The harness does not depend on any single provider. Models are registered in a provider registry, each with its transport adapter, authentication, rate limits, and capability profile.</p>
+
+<h3>Multi-provider routing</h3>
+<p>Not every task needs the same model. Reconnaissance planning, vulnerability analysis, exploit generation, and report writing have different requirements for reasoning depth, speed, and cost. The routing layer assigns tasks to models along five axes:</p>
+<ul>
+<li><strong>Capability.</strong> Does the model handle the task class? Code generation, natural-language reasoning, structured extraction, and tool-use each map to different model strengths.</li>
+<li><strong>Cost.</strong> Budgets are first-class controls. Every inference call has a cost, and the harness tracks spend per engagement, per phase, and per task. When the budget tightens, the router falls back to cheaper models for lower-stakes tasks.</li>
+<li><strong>Latency.</strong> Time-sensitive tasks (live exploitation windows, race conditions) route to faster models. Planning tasks that can wait route to deeper reasoners.</li>
+<li><strong>Reliability.</strong> The router tracks success rates per model per task class. Models that consistently fail at a task class are deprioritised automatically.</li>
+<li><strong>Compliance.</strong> Some engagement scopes restrict which providers can see target data. The router respects these constraints before anything else.</li>
+</ul>
+
+<h3>Failover and concurrency</h3>
+<p>The model pool runs behind a semaphore-controlled concurrency layer. If a provider goes down, rate-limits, or returns degraded results, the harness fails over to the next model in the priority chain. This is deterministic: the fallback order is defined in the engagement configuration, not decided by the model at runtime. Pause and resume controls let the operator freeze inference without losing state.</p>
+
+<div class="deep">
+  <p class="tagline">Design principle</p>
+  <h4>Why orchestration is not function-calling</h4>
+  <p>Function-calling is a model feature: the model emits a structured request, and the runtime executes it. That works for simple tool use. It does not work for offensive security, because <strong>the model should never decide what gets executed</strong>. The harness decides. The model proposes. The policy evaluates. The executor runs. Function-calling collapses all four roles into one, and the result is a system where a hallucinated tool call can reach the network. The harness architecture keeps them separate by design.</p>
+</div>
+
+<hr/>
+
+<h2 id="scope"><span class="n">04</span>Module 2: Scope policy</h2>
+<p>Scope is the hardest problem in automated offensive security. A human tester internalises the rules of engagement and applies judgment continuously. An AI system needs those rules encoded as machine-readable policy that can be evaluated deterministically on every action, every cycle, without exception.</p>
+
+<h3>The scope manifest</h3>
+<p>Every engagement begins with a versioned scope manifest: a structured document that defines exactly what is in scope, what is out, and what conditions must be met before certain actions are permitted. The manifest is signed, timestamped, and immutable once the engagement starts. Changes require a new version with an explicit diff and approval chain.</p>
+
+<h3>Default-deny across six dimensions</h3>
+<p>The policy engine evaluates every proposed action against six independent dimensions. An action must be explicitly permitted on <em>all six</em> to proceed. Failing any one dimension blocks it.</p>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Dimension</th><th>What it gates</th><th>Example constraint</th></tr></thead>
+<tbody>
+<tr><td><strong>Target</strong></td><td>Which hosts, networks, applications, and endpoints may be touched</td><td>Only 10.0.0.0/8 and the three named web apps</td></tr>
+<tr><td><strong>Action</strong></td><td>What classes of operation are permitted (scan, exploit, exfiltrate, persist)</td><td>No persistence, no data exfiltration beyond proof-of-concept</td></tr>
+<tr><td><strong>Protocol</strong></td><td>Which protocols, ports, and methods may be used</td><td>HTTP/HTTPS only; no raw TCP to database ports</td></tr>
+<tr><td><strong>Identity</strong></td><td>Which credentials, accounts, and privilege levels are authorised</td><td>Only the three provisioned test accounts</td></tr>
+<tr><td><strong>Time</strong></td><td>When actions may be performed</td><td>Business hours only; no weekend testing</td></tr>
+<tr><td><strong>Risk</strong></td><td>What destructive potential is acceptable</td><td>No actions above a deterministic risk score of D2</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>SSRF and resolution safety</h3>
+<p>Cloud metadata endpoints, localhost addresses, internal network ranges, and link-local addresses are blocked at the policy layer, not at the network layer. The policy engine resolves DNS before evaluating the target dimension, which defeats DNS rebinding: if a hostname resolves to an internal address, the action is denied regardless of what the original target string looked like. Redirect chains are followed and re-evaluated at every hop.</p>
+
+<h3>Capability tokens</h3>
+<p>For actions that require temporary elevated authorisation, the harness issues capability tokens: signed, time-limited, revocable grants that authorise a specific action against a specific target for a specific window. The token is consumed on use. It cannot be replayed, extended, or transferred. This is how the harness handles escalation within an engagement without permanently widening the scope.</p>
+
+<div class="deep">
+  <p class="tagline">Architecture note</p>
+  <h4>The two gateways</h4>
+  <p>The policy engine operates as two independent gateways. The <strong>pre-execution gateway</strong> evaluates the proposed action against the scope manifest before any network traffic leaves the harness. The <strong>post-execution gateway</strong> evaluates the result: did the action stay within its authorised impact? Did it touch anything outside scope? Did it produce unexpected side effects? Both gates must pass. The model is not involved in either evaluation. Policy is deterministic, not probabilistic.</p>
+</div>
+
+<hr/>
+
+<h2 id="execution"><span class="n">05</span>Module 3: Execution safety</h2>
+<p>Once an action passes the policy gate, the execution engine runs it inside a controlled environment. The design principle is simple: every action is assumed to be dangerous until it proves otherwise. The executor provides containment, not trust.</p>
+
+<h3>The sandbox</h3>
+<p>Every task runs in an ephemeral container with no network access by default. Egress is granted per-action by the policy engine, only to the specific targets authorised for that action. The filesystem is temporary and destroyed after execution. Resource limits (CPU, memory, wall-clock time) are enforced at the container level. A task that exceeds its limits is killed, not warned.</p>
+
+<h3>Destructive limits</h3>
+<p>The harness classifies actions on a five-level destructive scale:</p>
+<ul>
+<li><strong>D0: Read-only.</strong> Observation, scanning, enumeration. No state change on the target.</li>
+<li><strong>D1: Reversible state change.</strong> Authentication attempts, configuration reads that create log entries. Minimal footprint.</li>
+<li><strong>D2: Significant but recoverable.</strong> Exploitation that changes target state but can be rolled back. File writes, service restarts.</li>
+<li><strong>D3: Potentially destructive.</strong> Actions that may cause data loss or service disruption. Requires explicit human approval before execution.</li>
+<li><strong>D4: Destructive.</strong> Denied by default. Only permitted with engagement-level override and real-time human supervision.</li>
+</ul>
+<p>The scope manifest sets the maximum permitted destructive level. The policy engine enforces it. The model cannot override it.</p>
+
+<h3>Credential isolation</h3>
+<p>Credentials are stored in a vault that the model cannot read. When a task requires authentication, the executor retrieves the credential from the vault, uses it inside the sandbox, and destroys the local copy after execution. The model sees the result of the authenticated action, never the credential itself. This prevents prompt injection attacks from extracting secrets through the model's context window.</p>
+
+<div class="mod">
+  <span class="label">Safety controls</span>
+  <div class="title">The kill chain of containment</div>
+  <p>Every action passes through these controls in order. Failing any one stops the action.</p>
+  <ul>
+    <li>Dry-run mode: simulate the action without network traffic, verify the command is well-formed</li>
+    <li>Approval gate: actions above the configured risk threshold require human sign-off</li>
+    <li>Circuit breaker: if the error rate for a target or action class exceeds a threshold, the entire class is paused</li>
+    <li>Kill switch: the operator can halt all execution instantly, from any interface, at any time</li>
+    <li>Fail-closed: if any component of the harness fails, all actions are denied until the component recovers</li>
+  </ul>
+</div>
+
+<hr/>
+
+<h2 id="state"><span class="n">06</span>Module 4: State, memory, and the attack graph</h2>
+<p>The model's context window is finite. An engagement is not. The state module solves this by maintaining structured, persistent memory outside the context window, recalling only what is relevant to the current task, and discarding nothing.</p>
+
+<h3>Hierarchical planning</h3>
+<p>The harness decomposes work into three levels: <strong>objectives</strong> (engagement-level goals like "achieve domain admin"), <strong>phases</strong> (reconnaissance, initial access, lateral movement, privilege escalation), and <strong>tasks</strong> (individual actions within a phase). The planner operates at all three levels, but the model only sees the task level at any given moment. The harness maintains the higher-level context and feeds the model the relevant slice.</p>
+
+<h3>The scheduler</h3>
+<p>Task ordering is not left to the model. The scheduler prioritises tasks by a weighted combination of risk (lower risk first), coverage (untested areas first), and entropy (areas of highest uncertainty first). It also enforces loop prevention: if the harness has attempted the same approach three times without progress, the scheduler forces a different strategy or escalates to human review.</p>
+
+<h3>Four-tier memory</h3>
+<p>The memory system operates in four layers, each with different retention and recall characteristics:</p>
+<ul>
+<li><strong>Working memory.</strong> The current task context. Fits in the model's context window. Refreshed every cycle.</li>
+<li><strong>Short-term memory.</strong> Recent observations and results from the current phase. Summarised and compressed as the phase progresses.</li>
+<li><strong>Long-term memory.</strong> Engagement-level facts: discovered hosts, credentials, network topology, vulnerability findings. Persists for the entire engagement.</li>
+<li><strong>Failure memory.</strong> A dedicated store of approaches that were tried and failed, with the reason for failure. This prevents the harness from repeating unsuccessful strategies, a failure mode that plagues naive agent loops.</li>
+</ul>
+
+<h3>The attack graph</h3>
+<p>Every discovered fact, every successful action, and every relationship between them is recorded in a typed, directed graph. Nodes represent assets (hosts, services, credentials, vulnerabilities). Edges represent relationships (runs-on, authenticates-to, exploitable-via). Every node and edge carries provenance metadata: when it was discovered, by which tool, with what confidence, and what evidence supports it.</p>
+
+<div class="deep">
+  <p class="tagline">Graph operations</p>
+  <h4>Attack trees and path prioritisation</h4>
+  <p>The attack graph supports two critical operations. <strong>Attack trees</strong> enumerate all known paths from the current position to a target objective, scored by feasibility, risk, and evidence strength. <strong>Path prioritisation</strong> ranks these paths using a Bayesian confidence model: paths with more validated steps are scored higher than paths with untested assumptions. The model uses these ranked paths to propose its next action, but the graph, not the model, maintains the ground truth.</p>
+  <h4>Evidence-state ladder</h4>
+  <p>Every node in the graph has an evidence state: <strong>hypothesised</strong> (the model believes it exists), <strong>observed</strong> (a tool returned data suggesting it), <strong>confirmed</strong> (independently validated), or <strong>exploited</strong> (successfully used in an attack path). The harness refuses to build attack paths through hypothesised nodes. Only confirmed or exploited nodes carry weight in path scoring.</p>
+</div>
+
+<hr/>
+
+<h2 id="evidence"><span class="n">07</span>Module 5: Evidence, validation, and orchestration</h2>
+<p>A finding without reproducible evidence is a claim. The evidence module ensures that every finding the harness reports can be independently verified, reproduced, and traced back to the exact request, response, and tool output that produced it.</p>
+
+<h3>The append-only evidence store</h3>
+<p>Every action the harness executes is recorded in full: the proposed action, the policy evaluation, the execution environment, the raw request, the raw response, any artefacts produced, and the validation result. Records are append-only and cryptographically chained. Nothing is deleted or overwritten. The evidence store is the engagement's audit trail and the source of truth for all reporting.</p>
+
+<h3>Reproducibility and validation</h3>
+<p>For every confirmed vulnerability, the harness records three types of test:</p>
+<ul>
+<li><strong>Positive test.</strong> The exploit succeeds: the vulnerability is confirmed.</li>
+<li><strong>Negative test.</strong> The exploit is run against a patched or non-vulnerable variant to confirm it fails. This proves the finding is specific, not a false positive caused by a permissive response.</li>
+<li><strong>Control test.</strong> A benign version of the same request is sent to establish the baseline behaviour. This distinguishes the vulnerability from normal application behaviour.</li>
+</ul>
+
+<h3>Independent verification</h3>
+<p>Findings are not validated by the same agent that discovered them. The harness runs a separate verifier agent, with its own model instance and its own context, that receives only the finding claim and the evidence, then attempts to reproduce it independently. The verifier has no access to the discoverer's reasoning or intermediate steps. This prevents confirmation bias: the verifier is trying to break the finding, not support it.</p>
+
+<div class="deep">
+  <p class="tagline">Orchestration</p>
+  <h4>The multi-agent roster</h4>
+  <p>The harness supports multiple specialised agents, each with a defined role, a scoped set of tools, and its own policy constraints. Agents communicate through a structured blackboard, not through shared context windows. The roster includes:</p>
+  <ul>
+    <li><strong>Reconnaissance agent.</strong> Discovery and enumeration only. No exploitation capability.</li>
+    <li><strong>Exploitation agent.</strong> Authorised to attempt exploitation within scope. Cannot persist or exfiltrate.</li>
+    <li><strong>Validation agent.</strong> Reproduces findings independently. Cannot discover new vulnerabilities.</li>
+    <li><strong>Reporting agent.</strong> Consumes validated evidence and produces deliverables. No target access.</li>
+  </ul>
+  <p>Each agent sees only the state relevant to its role. The reconnaissance agent cannot see exploitation results. The reporting agent cannot see raw credentials. Role isolation is enforced at the harness level, not by the model.</p>
+</div>
+
+<hr/>
+
+<h2 id="telemetry"><span class="n">08</span>Operational controls</h2>
+<p>The harness itself is a security-critical system. It needs the same rigour applied to its own operations that it applies to the targets it tests.</p>
+
+<h3>Telemetry and observability</h3>
+<p>Every component of the harness emits structured telemetry: inference calls, policy evaluations, execution events, memory operations, and evidence commits. The telemetry pipeline is separate from the evidence store. It feeds dashboards and alerting, not findings. An operator can see, at any moment, what the harness is doing, what it is planning, and what it has spent.</p>
+
+<h3>Versioning and provenance</h3>
+<p>The harness, the policy manifests, the tool definitions, and the agent configurations are all versioned and signed. Every engagement records the exact versions of every component used. This supports audit, reproducibility, and rollback. If a finding is disputed six months later, the exact environment that produced it can be reconstructed.</p>
+
+<h3>Privacy and data handling</h3>
+<p>A privacy gateway sits between the model and any data that flows through the harness. It enforces data-loss prevention rules, strips personally identifiable information from model context when the engagement scope requires it, and ensures that target data is never sent to a model provider whose data-handling terms conflict with the engagement agreement. Tenant isolation guarantees that data from one engagement never contaminates another.</p>
+
+<h3>Continuous evaluation</h3>
+<p>The harness includes a separate evaluation framework that measures its own performance: coverage (what percentage of the attack surface was tested), accuracy (what percentage of findings were confirmed on manual review), efficiency (cost and time per validated finding), and safety (how many out-of-scope actions were attempted and caught). These metrics are tracked per engagement and across engagements, and they feed back into the harness's own development cycle.</p>
+
+<hr/>
+
+<h2 id="why"><span class="n">09</span>Why this architecture</h2>
+
+<div class="tbl">
+<table>
+<thead><tr><th>Without the harness</th><th>With the harness</th></tr></thead>
+<tbody>
+<tr><td>The model decides what to execute</td><td>The model proposes; deterministic policy decides</td></tr>
+<tr><td>Scope is a prompt instruction the model may ignore</td><td>Scope is a machine-readable manifest enforced on every action</td></tr>
+<tr><td>Credentials pass through the model's context</td><td>Credentials stay in a vault the model cannot read</td></tr>
+<tr><td>Actions run in the same environment as the harness</td><td>Every action runs in an ephemeral, network-isolated sandbox</td></tr>
+<tr><td>Memory is the context window; it fills up and forgets</td><td>Structured memory persists outside the context window with selective recall</td></tr>
+<tr><td>Findings are whatever the model says they are</td><td>Findings are independently reproduced by a separate verifier agent</td></tr>
+<tr><td>The system has no audit trail</td><td>Every action is append-only recorded with full provenance</td></tr>
+<tr><td>Failure loops: the model retries the same approach endlessly</td><td>Failure memory and loop prevention force strategy changes</td></tr>
+<tr><td>One agent with all permissions</td><td>Role-isolated agents on a structured blackboard with scoped access</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>The harness is the difference between an AI system that is useful for offensive security and one that is safe for it. The model provides intelligence. The harness provides control. Neither works without the other, and collapsing them into a single layer is the fastest way to build something that nobody should trust with access to a production network.</p>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <a class="mark" href="./"><svg class="lg" viewBox="20 20 60 60" aria-hidden="true"><path pathLength="1" d="M72,30 L30,30 L30,70 L70,70 L70,50 L50,50" fill="none" stroke="currentColor" stroke-width="9"/><rect x="37" y="45.5" width="9" height="9" fill="currentColor"/></svg>ghost_sec&nbsp;<span class="w">writes</span></a>
+      <p>Offensive security and AI red team research by @ghost_sec. All write-ups are for educational purposes only.</p>
+    </div>
+    <div>
+      <h4>Writing</h4>
+      <ul>
+        <li><a href="ai-red-team.html">AI Red Team Methodology</a></li>
+        <li><a href="ai-assistants.html">AI Assistants &amp; Workflow Apps</a></li>
+        <li><a href="firm-compromise.html">End-to-End Firm Compromise</a></li>
+        <li><a href="crypto-vault.html">Breaking a Crypto Vault</a></li>
+        <li><a href="otp-takeover.html">OTP Account Takeover</a></li>
+        <li><a href="edr-bypass.html">Bypassing EDR</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Connect</h4>
+      <ul>
+        <li><a href="https://www.linkedin.com/in/ridros/">LinkedIn</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">&copy; 2025 Ghost Sec Writes. All rights reserved.</div>
+</footer>
+
+<script>
+function toggleTheme(){
+  var root=document.documentElement;
+  var current=root.getAttribute('data-theme');
+  var next=current==='dark'?'light':current==='light'?'dark':
+    window.matchMedia('(prefers-color-scheme:dark)').matches?'light':'dark';
+  root.setAttribute('data-theme',next);
+  try{localStorage.setItem('ghost-theme',next)}catch(e){}
+}
+(function(){
+  try{var t=localStorage.getItem('ghost-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+})();
+</script>
+</body>
+</html>

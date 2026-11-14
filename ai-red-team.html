@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Red-Teaming an Enterprise Claude Deployment — AI Red Team Methodology &amp; Findings Overview</title>
+<meta name="description" content="The methodology behind an adversary-simulated assessment of an enterprise AI deployment: the full set of attack vectors exercised against the identity plane, the LLM proxy, the cloud backend and the agent endpoint, with a findings overview."/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#0a0a0a; --ink:#141414; --paper:#ffffff; --paper-2:#f6f4f1;
+  --red:#d0021b; --red-deep:#a80016; --red-wash:#f6ccd3;
+  --muted:#6b6b6b; --line:#e4e1dc; --line-strong:#111;
+  --code-bg:#0d0d0d; --code-fg:#f2efe9;
+  --crit:#d0021b; --high:#e0531a; --med:#b58900; --low:#2e7d46; --info:#555;
+  --wrap:760px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-size:18px;line-height:1.72;-webkit-font-smoothing:antialiased;}
+::selection{background:var(--red);color:#fff}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:50;background:var(--paper);border-bottom:1px solid var(--line);}
+.topbar-inner{max-width:1080px;margin:0 auto;padding:16px 28px;display:flex;
+  align-items:center;justify-content:space-between;gap:24px;}
+.mark{font-family:"Fraunces",serif;font-weight:600;font-size:20px;letter-spacing:-.3px;
+  color:var(--black);text-decoration:none;display:flex;align-items:center;gap:10px;}
+.mark .sq{width:12px;height:12px;background:var(--red);display:inline-block;transform:rotate(45deg)}
+.topbar nav{display:flex;gap:24px;flex-wrap:wrap}
+.topbar nav a{color:var(--ink);text-decoration:none;font-size:13.5px;font-weight:500;letter-spacing:.3px;}
+.topbar nav a:hover{color:var(--red)}
+.topbar .back{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--muted);text-decoration:none}
+.topbar .back:hover{color:var(--red)}
+.topbar-right{display:flex;align-items:center;gap:16px}
+@media(max-width:720px){.topbar nav{display:none}}
+
+/* hero */
+.hero{max-width:var(--wrap);margin:0 auto;padding:78px 28px 46px;}
+.kicker{display:inline-flex;align-items:center;gap:10px;font-family:"JetBrains Mono",monospace;
+  font-size:12px;font-weight:500;letter-spacing:2.5px;text-transform:uppercase;color:var(--red);margin-bottom:26px;}
+.kicker::before{content:"";width:28px;height:2px;background:var(--red)}
+.hero h1{font-family:"Fraunces",serif;font-weight:600;line-height:1.08;
+  font-size:clamp(34px,6vw,58px);margin:0 0 24px;letter-spacing:-1px;color:var(--black);}
+.hero .standfirst{font-size:21px;line-height:1.55;color:#36352f;max-width:62ch;margin:0 0 34px;}
+.byline{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px;color:var(--muted);
+  padding-top:22px;border-top:1px solid var(--line-strong);}
+.byline b{color:var(--ink);font-weight:600}
+.byline .tag{color:var(--red);font-weight:600;font-family:"JetBrains Mono",monospace;
+  font-size:12px;letter-spacing:1px;text-transform:uppercase}
+
+/* article */
+.article{max-width:var(--wrap);margin:0 auto;padding:10px 28px 40px;}
+.article h2{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(26px,4vw,34px);
+  line-height:1.15;margin:68px 0 20px;letter-spacing:-.5px;color:var(--black);scroll-margin-top:84px;}
+.article h2 .n{color:var(--red);font-family:"JetBrains Mono",monospace;font-size:15px;
+  font-weight:500;vertical-align:super;margin-right:10px;letter-spacing:0}
+.article h3{font-family:"Fraunces",serif;font-weight:600;font-size:23px;
+  margin:44px 0 10px;letter-spacing:-.3px;color:var(--black);scroll-margin-top:84px;}
+.article h3 .ph{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--red);
+  font-weight:500;margin-right:10px;letter-spacing:1px}
+.article h4{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500;
+  letter-spacing:1.6px;text-transform:uppercase;color:var(--red);margin:26px 0 8px;}
+.article p{margin:0 0 18px}
+.article a{color:var(--red);text-decoration:none;border-bottom:1px solid var(--red-wash)}
+.article a:hover{border-bottom-color:var(--red)}
+.article strong{color:var(--black);font-weight:600}
+.article em{font-style:italic}
+.article ul,.article ol{margin:0 0 20px;padding-left:4px;list-style:none}
+.article ul li,.article ol li{position:relative;padding-left:26px;margin:9px 0}
+.article ul li::before{content:"";position:absolute;left:4px;top:11px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+.article ol{counter-reset:ol}.article ol li{counter-increment:ol}
+.article ol li::before{content:counter(ol);position:absolute;left:0;top:0;
+  font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:600;color:var(--red)}
+.lead{font-size:20px;color:#36352f;line-height:1.6}
+hr{border:0;height:1px;background:var(--line);margin:56px 0}
+.article > .lead:first-of-type::first-letter{font-family:"Fraunces",serif;font-weight:600;
+  font-size:66px;line-height:.8;float:left;padding:6px 12px 0 0;color:var(--red);}
+
+.note{background:var(--paper-2);border:1px solid var(--line);border-left:3px solid var(--red);
+  padding:20px 24px;margin:28px 0;font-size:15.5px;color:#403f39;border-radius:0 3px 3px 0;}
+.note strong{color:var(--black)}
+.pull{font-family:"Fraunces",serif;font-weight:500;font-size:25px;line-height:1.3;color:var(--black);
+  border-top:2px solid var(--black);border-bottom:2px solid var(--black);padding:26px 0;margin:38px 0;letter-spacing:-.3px;}
+.pull .accent{color:var(--red)}
+code{font-family:"JetBrains Mono",monospace;font-size:.84em;background:var(--paper-2);
+  color:var(--red-deep);padding:2px 6px;border-radius:3px;border:1px solid var(--line);}
+
+/* tables */
+.tbl{overflow-x:auto;margin:0 0 26px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{background:var(--black);color:#fff;font-family:"JetBrains Mono",monospace;
+  font-weight:500;font-size:11.5px;letter-spacing:1px;text-transform:uppercase;border-bottom:none}
+tbody tr:hover{background:var(--paper-2)}
+td code{font-size:.82em}
+.yes{color:var(--red);font-weight:700}.no{color:var(--low);font-weight:700}
+.sv{font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+.sv.c{color:var(--crit)}.sv.h{color:var(--high)}.sv.m{color:var(--med)}.sv.l{color:var(--low)}
+
+/* phase vector tag */
+.vec{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;
+  color:var(--muted);margin:0 0 10px}
+.vec b{color:var(--red);font-weight:500}
+
+/* scoreboard */
+.score{display:flex;flex-wrap:wrap;gap:14px;margin:30px 0}
+.score div{flex:1;min-width:110px;border:1px solid var(--line);padding:18px 16px;text-align:center}
+.score .num{font-family:"Fraunces",serif;font-size:40px;font-weight:600;line-height:1}
+.score .lab{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:8px}
+.score .c-crit .num{color:var(--crit)}.score .c-high .num{color:var(--high)}
+.score .c-med .num{color:var(--med)}.score .c-low .num{color:var(--low)}
+
+/* phase rail */
+.phase{position:relative;padding-left:0}
+.phase h3{border-left:3px solid var(--red);padding-left:16px;margin-left:-19px}
+
+/* footer */
+.foot{background:var(--black);color:#b8b5af;margin-top:70px}
+.foot-inner{max-width:1080px;margin:0 auto;padding:60px 28px 30px;display:grid;grid-template-columns:1.8fr 1fr 1fr;gap:40px}
+.foot .mark{color:#fff}.foot .mark .sq{background:var(--red)}
+.foot p{font-size:14px;line-height:1.65;max-width:40ch;margin:16px 0 0;color:#8f8c86}
+.foot h4{color:#fff;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 16px}
+.foot ul{list-style:none;margin:0;padding:0}.foot li{margin:9px 0}
+.foot a{color:#b8b5af;text-decoration:none;font-size:14px}.foot a:hover{color:var(--red)}
+.foot-bottom{border-top:1px solid #222;text-align:center;padding:22px 28px;font-size:12px;color:#6b6762;font-family:"JetBrains Mono",monospace;letter-spacing:.5px}
+@media(max-width:720px){.foot-inner{grid-template-columns:1fr;gap:30px}.hero{padding-top:52px}}
+
+.theme-toggle{background:none;border:1px solid var(--line);color:var(--muted);font-size:20px;cursor:pointer;padding:4px 10px;border-radius:4px;line-height:1;transition:color .2s,border-color .2s}
+.theme-toggle:hover{color:var(--red);border-color:var(--red)}
+
+@media(prefers-color-scheme:dark){
+:root:not([data-theme='light']){
+  --black:#f0f0f0;--ink:#e0ddd8;--paper:#0a0a0a;--paper-2:#141414;
+  --red:#e8334a;--red-deep:#ff6b7a;--red-wash:#2a0a0f;
+  --muted:#8a8a8a;--line:#2a2a2a;--line-strong:#ddd;
+  --code-bg:#161616;--code-fg:#f2efe9;
+}
+:root:not([data-theme='light']) .hero .standfirst,:root:not([data-theme='light']) .lead{color:#c0bdb6}
+:root:not([data-theme='light']) .note{background:#141414;border-color:#2a2a2a;border-left-color:var(--red);color:#c0bdb6}
+:root:not([data-theme='light']) .pull{border-color:#ddd}
+:root:not([data-theme='light']) thead th{background:#1a1a1a}
+:root:not([data-theme='light']) tbody tr:hover{background:#141414}
+:root:not([data-theme='light']) td,:root:not([data-theme='light']) th{border-bottom-color:#2a2a2a}
+:root:not([data-theme='light']) code{background:#1a1a1a;border-color:#2a2a2a;color:var(--red)}
+:root:not([data-theme='light']) .score div{border-color:#2a2a2a}
+:root:not([data-theme='light']) .foot{background:#050505}
+:root:not([data-theme='light']) .foot p{color:#6b6762}
+:root:not([data-theme='light']) .foot a{color:#8a8a8a}
+:root:not([data-theme='light']) .foot-bottom{border-top-color:#1a1a1a}
+:root:not([data-theme='light']) ::selection{background:var(--red);color:#fff}
+}
+[data-theme='dark']{
+  --black:#f0f0f0;--ink:#e0ddd8;--paper:#0a0a0a;--paper-2:#141414;
+  --red:#e8334a;--red-deep:#ff6b7a;--red-wash:#2a0a0f;
+  --muted:#8a8a8a;--line:#2a2a2a;--line-strong:#ddd;
+  --code-bg:#161616;--code-fg:#f2efe9;
+}
+[data-theme='dark'] .hero .standfirst,[data-theme='dark'] .lead{color:#c0bdb6}
+[data-theme='dark'] .note{background:#141414;border-color:#2a2a2a;border-left-color:var(--red);color:#c0bdb6}
+[data-theme='dark'] .pull{border-color:#ddd}
+[data-theme='dark'] thead th{background:#1a1a1a}
+[data-theme='dark'] tbody tr:hover{background:#141414}
+[data-theme='dark'] td,[data-theme='dark'] th{border-bottom-color:#2a2a2a}
+[data-theme='dark'] code{background:#1a1a1a;border-color:#2a2a2a;color:var(--red)}
+[data-theme='dark'] .score div{border-color:#2a2a2a}
+[data-theme='dark'] .foot{background:#050505}
+[data-theme='dark'] .foot p{color:#6b6762}
+[data-theme='dark'] .foot a{color:#8a8a8a}
+[data-theme='dark'] .foot-bottom{border-top-color:#1a1a1a}
+[data-theme='dark'] ::selection{background:var(--red);color:#fff}
+
+.mark{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:17px;letter-spacing:-.3px;gap:10px}
+.mark .lg{width:22px;height:22px;flex:none;display:block}
+.mark .w{opacity:.5;font-weight:400}
+.mark .lg path{stroke-dasharray:1;stroke-dashoffset:1;animation:gsd 1.1s cubic-bezier(.6,0,.2,1) forwards}
+.mark .lg rect{opacity:0;animation:gsb 1.1s steps(1) 1.15s infinite}
+.foot .mark .lg path{animation:none;stroke-dashoffset:0}
+@keyframes gsd{to{stroke-dashoffset:0}}
+@keyframes gsb{0%{opacity:1}50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.mark .lg path{animation:none;stroke-dashoffset:0}.mark .lg rect{animation:none;opacity:1}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="mark" href="./"><svg class="lg" viewBox="20 20 60 60" aria-hidden="true"><path pathLength="1" d="M72,30 L30,30 L30,70 L70,70 L70,50 L50,50" fill="none" stroke="currentColor" stroke-width="9"/><rect x="37" y="45.5" width="9" height="9" fill="currentColor"/></svg>ghost_sec&nbsp;<span class="w">writes</span></a>
+    <div class="topbar-right">
+      <a class="back" href="./">&#8592; All writing</a>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+    <nav>
+      <a href="#summary">Summary</a>
+      <a href="#methodology">Methodology</a>
+      <a href="#findings">Findings overview</a>
+      <a href="#priorities">Priorities</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <span class="kicker">AI Red Team · Methodology</span>
+  <h1>Red-teaming an enterprise Claude deployment</h1>
+  <p class="standfirst">The methodology behind an adversary-simulated assessment of an enterprise AI stack: the full set of attack vectors exercised across the identity plane, the LLM proxy, the cloud backend and the coding agent, with a one-line overview of what each finding achieved.</p>
+  <div class="byline">
+    <span><b>@ghost_sec</b></span>
+    <span>Methodology &amp; findings overview</span>
+    <span class="tag">Educational write-up</span>
+  </div>
+</section>
+
+<main class="article">
+
+<h2 id="summary"><span class="n">00</span>Executive summary</h2>
+<p class="lead">Enterprise AI is rarely a single product. "We deployed Claude for our developers" is, underneath, a stack: an identity provider minting tokens, a reverse proxy brokering API calls, a cloud backend hosting the models, and a command-line agent on every laptop that can read files, run shell commands and call tools. Each layer has its own trust boundary, and each boundary is a place an attacker can stand.</p>
+<p>This article is not a finding-by-finding report. It sets out the <strong>methodology</strong> used to red-team one such deployment end to end: the attacker goals, the trust-boundary model, and the full catalogue of attack vectors exercised against an agentic AI platform. The individual results appear only as a <strong>findings overview</strong>, one line each. The engagement covered the enterprise SSO integration, the LLM proxy's API surface, the cloud AI backend, and the agent (Claude Code CLI) on a developer workstation.</p>
+<p>Across those vectors the assessment produced <strong>thirteen findings: two Critical, four High, five Medium, two Low</strong>.</p>
+<div class="score">
+  <div class="c-crit"><div class="num">2</div><div class="lab">Critical</div></div>
+  <div class="c-high"><div class="num">4</div><div class="lab">High</div></div>
+  <div class="c-med"><div class="num">5</div><div class="lab">Medium</div></div>
+  <div class="c-low"><div class="num">2</div><div class="lab">Low</div></div>
+</div>
+<p class="pull">The AI platform inherited <span class="accent">excessive trust</span> at every layer, and exported almost no <span class="accent">visibility</span>.</p>
+<div class="note">
+<strong>On scope and sanitisation.</strong> This article is derived solely from an internal assessment report. All client-identifying material (names, email addresses, domains, hostnames, IP addresses, tenant and subscription identifiers, resource names and live credentials) has been removed or replaced with neutral placeholders. No live systems were touched in producing this write-up, and every technical detail originates from the source report. Specific internal endpoints and exploit payloads are deliberately withheld; the focus is the method, not a runbook.
+</div>
+
+<hr/>
+
+<h2 id="methodology"><span class="n">01</span>Methodology followed</h2>
+<p>The engagement was run as <strong>adversary emulation</strong>, not a checklist audit. The guiding question at every step was "what would an attacker do next with what they just obtained?" The phases below map a general AI-red-team methodology onto this stack, and each lists the <em>attack vectors</em> exercised. A conventional application and cloud security method underpins the whole thing; the AI-specific vectors sit on top of it, not instead of it.</p>
+
+<p>The starting assumption was the weakest realistic foothold: <strong>a single valid employee identity</strong> (phishing, a compromised contractor, a malicious insider) and, separately, a piece of <strong>untrusted content</strong> the agent might ingest (a cloned repo, a shared skill, an MCP server). Everything chains forward from there.</p>
+
+<div class="phase">
+
+<h3><span class="ph">P0</span>Scoping &amp; adversary-goal definition</h3>
+<p class="vec">Vectors framed · <b>attacker objectives, abuse cases, in-scope trust boundaries</b></p>
+<p>Define concrete adversary goals rather than generic "try to break it": exfiltrate another identity's data, obtain a durable credential, achieve code execution on an endpoint, reach models the user is not entitled to, or operate without being logged. Agree scope, sensitive-data handling, and which boundaries are live. Every later vector traces back to one of these goals.</p>
+
+<h3><span class="ph">P1</span>Threat modelling &amp; trust-boundary mapping</h3>
+<p class="vec">Vectors mapped · <b>data-flow analysis, trust-boundary enumeration, confused-deputy paths</b></p>
+<ul>
+<li>Enumerate every boundary where authority changes hands: user to agent, agent to tool, tool to proxy, proxy to backend, identity provider to cloud.</li>
+<li>Map where <strong>untrusted input</strong> can enter the model's context: prompts, retrieved documents, web content, tool results, memory, file contents, MCP tool descriptions.</li>
+<li>Identify <strong>confused-deputy</strong> conditions, where a low-privilege input can make a higher-privilege component act on its behalf.</li>
+</ul>
+
+<h3><span class="ph">P2</span>Identity &amp; access testing</h3>
+<p class="vec">Vectors · <b>authn bypass, authz gaps, token theft, SSO bypass, RBAC abuse, privilege escalation</b></p>
+<ul>
+<li>Acquire tokens for the gateway and the cloud management API; inspect JWT claims, scopes and audiences.</li>
+<li>Test for an <strong>authorisation gate</strong> between "authenticated tenant user" and "authorised AI user": app-role assignment, group checks, roles claims.</li>
+<li>Review the app registration for token-theft primitives: implicit grant, loose or loopback redirect URIs, mapped-claims acceptance, long-lived client secrets, over-broad group claims.</li>
+<li>Probe for <strong>SSO-bypass</strong> paths: header-based auth, fallback credential logins, static keys honoured in place of a token.</li>
+<li>Hunt for <strong>privilege escalation</strong>, especially a low-privilege identity obtaining a durable, high-privilege, identity-less credential.</li>
+</ul>
+
+<h3><span class="ph">P3</span>Cloud &amp; infrastructure assessment</h3>
+<p class="vec">Vectors · <b>RBAC over-provisioning, key-listing actions, metadata enumeration, secret sprawl</b></p>
+<ul>
+<li>Enumerate subscriptions, resource groups, the AI backend resource and its model deployments through normal cloud RBAC.</li>
+<li>Inspect role definitions for dangerous actions (key listing, data-action wildcards) available to ordinary roles.</li>
+<li>Check resource and subscription tags for exposed owner or organisational information useful for targeting.</li>
+<li>Look for undisclosed or high-capacity model deployments reachable despite not being advertised.</li>
+</ul>
+
+<h3><span class="ph">P4</span>Gateway, application &amp; API security</h3>
+<p class="vec">Vectors · <b>unauthenticated management surfaces, API-spec disclosure, input-validation gaps, rate-limit and model-allowlist bypass</b></p>
+<ul>
+<li>Map the proxy's exposed HTTP surface; probe admin, documentation, routing and health endpoints for missing authentication.</li>
+<li>Test server-side validation of caller-supplied parameters, especially the tools and tool-result fields.</li>
+<li>Check for a <strong>model allowlist</strong>: can a caller name a model or deployment they were never meant to reach, or exceed the intended rate limit.</li>
+<li>Apply standard web and API fundamentals: broken access control, injection, SSRF, information disclosure through errors.</li>
+</ul>
+
+<h3><span class="ph">P5</span>Model &amp; prompt-layer attacks</h3>
+<p class="vec">Vectors · <b>direct &amp; indirect prompt injection, RAG/memory poisoning, tool-result injection, system-prompt extraction, jailbreak, context forgery</b></p>
+<ul>
+<li><strong>Direct prompt injection and jailbreaks</strong> against the model's instruction hierarchy and safety controls.</li>
+<li><strong>Indirect prompt injection</strong>: hostile instructions planted in content the agent ingests, retrieved documents, web pages, file contents, repository files, tool output, so the untrusted data becomes instructions.</li>
+<li><strong>RAG and memory poisoning</strong>: corrupting retrieved or stored context so the model treats attacker data as authoritative history.</li>
+<li><strong>Tool-result injection</strong>: forging the output of a tool call so the model acts on fabricated state.</li>
+<li><strong>System-prompt and context extraction</strong>: coaxing the model to reveal its instructions, tool definitions or other callers' context in shared or replayed sessions.</li>
+</ul>
+
+<h3><span class="ph">P6</span>Tool, connector &amp; MCP integration abuse</h3>
+<p class="vec">Vectors · <b>tool-description poisoning, MCP rug-pull, excessive agency, confused deputy, integration supply chain</b></p>
+<ul>
+<li><strong>Tool-description poisoning</strong>: hidden instructions inside an integration's tool metadata that the model reads as trusted context.</li>
+<li><strong>Rug-pull</strong>: an integration that behaves during review and swaps in a malicious description later, tested for any integrity check, hash or change detection between sessions.</li>
+<li><strong>Excessive agency</strong>: tools exposed with more capability or reach than the task needs, including credential-adjacent file access.</li>
+<li><strong>Supply chain</strong>: shared skills and MCP servers as a delivery vector, and whether installation is constrained to an approved allowlist.</li>
+</ul>
+
+<h3><span class="ph">P7</span>Agent endpoint &amp; permission-boundary testing</h3>
+<p class="vec">Vectors · <b>policy-enforcement gaps, settings-hierarchy override, hook abuse, TOCTOU, permission bypass, persistence</b></p>
+<ul>
+<li>Audit the agent's layered settings hierarchy for an <strong>enforcing managed policy</strong> above user and project settings, and test whether dangerous constructs are accepted without validation.</li>
+<li>Test permission-model bypasses: skip-permission flags, wildcard command allow-lists, blanket auto-approve hooks.</li>
+<li>Test hook-based abuse: argument rewriting after approval (<strong>TOCTOU</strong>), pre-conversation execution via skill frontmatter, detached async beaconing, and persistence across the memory-compaction boundary.</li>
+<li>Confirm whether a single prompt injection can reach shell execution with no human interaction.</li>
+</ul>
+
+<h3><span class="ph">P8</span>Sensitive-data exposure &amp; secrets at rest</h3>
+<p class="vec">Vectors · <b>credential sprawl, plaintext transcripts, local artefact retention, data-governance inversion</b></p>
+<ul>
+<li>Inspect what the agent persists locally: transcripts, state snapshots, cached tokens and keys.</li>
+<li>Grep local artefacts for secrets, and check whether extracted credentials survive rotation on disk.</li>
+<li>Assess the inverted data-governance problem: not only what goes into the model, but the rich local record it leaves behind.</li>
+</ul>
+
+<h3><span class="ph">P9</span>Living-off-the-land &amp; reconnaissance abuse</h3>
+<p class="vec">Vectors · <b>agent-driven recon, LOLBin generation, skill compression, detection evasion by legitimacy</b></p>
+<ul>
+<li>Test whether plain-language instructions are translated into working reconnaissance across on-premises directory, cloud tenant and internal applications.</li>
+<li>Confirm whether that activity runs within the invoking user's standing privileges through signed, expected binaries that blend into normal developer behaviour.</li>
+<li>Assess the force-multiplier effect: lowered skill floor for an attacker, and evasion of monitoring tuned for unsigned or anomalous tooling.</li>
+</ul>
+
+<h3><span class="ph">P10</span>Detection, telemetry &amp; logging review</h3>
+<p class="vec">Vectors · <b>telemetry gaps, no SIEM/OTel export, retention shortfall, IR blind spots</b></p>
+<ul>
+<li>Check whether agent and backend activity streams to a central collector and SIEM, or lives only on the endpoint.</li>
+<li>Test retention against policy, and map incident-response scenarios to what evidence would actually survive.</li>
+<li>Identify where behavioural detection must replace signature or binary-reputation detection.</li>
+</ul>
+
+<h3><span class="ph">P11</span>Reproducibility, regression &amp; retest</h3>
+<p class="vec">Vectors validated · <b>reliability vs one-off behaviour, regression suite, fix verification</b></p>
+<ul>
+<li>Because model behaviour is non-deterministic, re-run each candidate finding enough times to separate a <strong>reliable failure</strong> from a lucky one-off, and record the success rate.</li>
+<li>Capture each confirmed vector as a small, re-runnable test so recurring failure modes become a <strong>regression suite</strong>.</li>
+<li>Retest alongside the owning engineers after remediation, and confirm the fix holds rather than merely moving the symptom.</li>
+</ul>
+
+</div>
+
+<hr/>
+
+<h2 id="findings"><span class="n">02</span>Findings overview</h2>
+<p>One line per finding: what the vector achieved, not how. Detailed proof-of-concept material stays in the private report.</p>
+<div class="tbl"><table>
+<thead><tr><th>#</th><th>What was achieved</th><th>Severity</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Extracted live backend API keys using a standard cloud role, and replayed one to bypass enterprise SSO entirely on the test gateway</td><td class="sv c">Critical</td></tr>
+<tr><td>2</td><td>Obtained a valid gateway token as an ordinary tenant user, with no role or group authorisation check</td><td class="sv h">High</td></tr>
+<tr><td>3</td><td>Confirmed a token-theft path from implicit grant and a loopback redirect, alongside long-lived unmanaged client secrets</td><td class="sv h">High</td></tr>
+<tr><td>4</td><td>Enumerated the full cloud tenant and backend blueprint, including undisclosed high-capacity model deployments reachable through the proxy</td><td class="sv m">Medium</td></tr>
+<tr><td>5</td><td>Forged the model's stored "memory" by injecting unvalidated tool results into the session context</td><td class="sv m">Medium</td></tr>
+<tr><td>6</td><td>Reached admin, API-specification and health surfaces, plus an SSO-bypassing fallback login, without authentication</td><td class="sv l">Low</td></tr>
+<tr><td>7</td><td>Demonstrated an MCP rug-pull: a trusted tool silently served a poisoned description between sessions, with no change detection</td><td class="sv h">High</td></tr>
+<tr><td>8</td><td>Overwrote the agent's permission model (skip-permissions, wildcard allow, auto-approve and TOCTOU hooks) because no managed policy enforced it, and read credential files with no prompt</td><td class="sv c">Critical</td></tr>
+<tr><td>9</td><td>Recovered secrets from full-fidelity local transcripts and confirmed no central export or SIEM visibility</td><td class="sv h">High</td></tr>
+<tr><td>10</td><td>Turned plain-English instructions into working AD, cloud and network reconnaissance through signed binaries, within the user's privileges</td><td class="sv m">Medium</td></tr>
+</tbody></table></div>
+<p style="font-size:15px;color:var(--muted)">The ten rows are the parent findings. The count of thirteen includes sub-findings folded into findings 3 and 8 (the implicit-grant sub-finding, and the four bypass techniques under the agent-policy root cause).</p>
+
+<h3>Affected components</h3>
+<div class="tbl"><table>
+<thead><tr><th>Component</th><th>Role in the stack</th><th>Headline exposure</th></tr></thead>
+<tbody>
+<tr><td><strong>Enterprise identity / SSO</strong></td><td>Issues tokens and gates access</td><td>No gate between "authenticated" and "authorised"; implicit-grant and redirect weaknesses enabling token theft</td></tr>
+<tr><td><strong>LLM proxy / gateway</strong></td><td>Brokers model access, holds the backend credential</td><td>Management surfaces without authentication; caller-supplied tool results trusted; no model allowlist</td></tr>
+<tr><td><strong>Cloud AI backend</strong></td><td>Hosts the models, governed by cloud RBAC</td><td>A standard role can list keys; broad read access; static keys that bypass SSO on one environment</td></tr>
+<tr><td><strong>Agent endpoint</strong></td><td>Reads files, runs commands, calls tools</td><td>No enforced policy; trusted integrations can turn malicious; recon through signed binaries</td></tr>
+<tr><td><strong>Telemetry &amp; monitoring</strong></td><td>Cross-cutting detection and IR evidence</td><td>No central logging or SIEM; full transcripts and secrets persist only on the endpoint</td></tr>
+</tbody></table></div>
+
+<hr/>
+
+<h2 id="priorities"><span class="n">03</span>Headline priorities</h2>
+<p>The methodology points at a small number of leveraged fixes that close or blunt most of the surface above.</p>
+<ul>
+<li><strong>Go keyless.</strong> Use managed-identity access to the backend and eliminate static keys, the single most dangerous artefact because they are durable, portable and identity-less.</li>
+<li><strong>Enforce a managed agent policy via MDM.</strong> This converts advisory guardrails into enforced ones and neutralises most endpoint findings at once: skip-permissions disabled, base URL pinned, deny-rules for credential reads, wildcard shell and elevation, and hooks sourced only from managed settings.</li>
+<li><strong>Separate authenticated from authorised.</strong> Require app-role assignment, disable implicit grant, and prove SSO is the sole path with no header or fallback bypass, in every environment.</li>
+<li><strong>Least-privilege the cloud roles.</strong> Remove key-listing from routine roles, restrict resource read to admins, and enforce a model allowlist at the proxy.</li>
+<li><strong>Wire the stack into a SIEM.</strong> Stream agent and backend telemetry centrally, cap local transcript retention, and alert on behavioural reconnaissance patterns rather than binary reputation.</li>
+<li><strong>Review the supply chain.</strong> Allowlist skills and MCP servers, and hash tool descriptions at approval with change detection on every subsequent fetch.</li>
+</ul>
+
+<div class="note" style="margin-top:40px"><strong>Note.</strong> This write-up is for educational purposes only. The techniques described illustrate offensive security methodology and are intended to help defenders understand and improve their detection capabilities.</div>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <span class="mark"><svg class="lg" viewBox="20 20 60 60" aria-hidden="true"><path pathLength="1" d="M72,30 L30,30 L30,70 L70,70 L70,50 L50,50" fill="none" stroke="currentColor" stroke-width="9"/><rect x="37" y="45.5" width="9" height="9" fill="currentColor"/></svg>ghost_sec&nbsp;<span class="w">writes</span></span>
+      <p>Notes from the field on offensive security, AI red teaming and threat research, by @ghost_sec.</p>
+    </div>
+    <div>
+      <h4>Contents</h4>
+      <ul>
+        <li><a href="#methodology">Methodology</a></li>
+        <li><a href="#findings">Findings overview</a></li>
+        <li><a href="#priorities">Priorities</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Index</h4>
+      <ul>
+        <li><a href="#summary">Executive summary</a></li>
+        <li><a href="#findings">Affected components</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">&copy; 2025 Ghost Sec Writes. All rights reserved.</div>
+</footer>
+
+<script>
+function toggleTheme(){
+  var root=document.documentElement;
+  var current=root.getAttribute('data-theme');
+  var next=current==='dark'?'light':current==='light'?'dark':
+    window.matchMedia('(prefers-color-scheme:dark)').matches?'light':'dark';
+  root.setAttribute('data-theme',next);
+  try{localStorage.setItem('ghost-theme',next)}catch(e){}
+}
+(function(){
+  try{var t=localStorage.getItem('ghost-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
+})();
+</script>
+</body>
+</html>
